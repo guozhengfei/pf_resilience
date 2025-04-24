@@ -1,0 +1,7 @@
+# Python cache files
+__pycache__/
+*.pyc
+
+# Specific Python files to exclude
+# file1_to_exclude.py
+# file2_to_exclude.py
