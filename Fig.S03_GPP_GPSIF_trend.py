@@ -118,3 +118,5 @@ plt.xlim([-0.02,0.04])
 fig.tight_layout()
 figToPath = current_dir + '/4_Figures/FigS03_GPP_trend_gosif_hist'
 plt.savefig(figToPath, dpi=900)
+
+sum(trends[:,0]>0)/trends.shape[0]

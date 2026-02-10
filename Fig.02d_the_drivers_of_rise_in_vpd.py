@@ -124,5 +124,38 @@ yHat = my_pwlf_0.predict(xHat)
 ax2.plot(xHat,yHat,'--',c='#4393c3')
 
 fig.tight_layout()
-figToPath = current_dir + '/4_Figures/Fig03c_resilience_drivers'
+figToPath = current_dir + '/4_Figures/Fig02c_resilience_drivers'
 plt.savefig(figToPath, dpi=600)
+    
+# Create time series array
+years = np.linspace(1990, 2022, 33)
+
+# Export data for panel 1 (VPD)
+vpd_data = pd.DataFrame({
+    'Year': years,
+    'VPD1_Anomaly': vpd1_anom,
+    'VPD1_StdDev': vpd1_sd,
+    'VPD2_Anomaly': vpd2_anom,
+    'VPD2_StdDev': vpd2_sd
+})
+vpd_data.to_csv(current_dir + '/4_Figures/Fig02d_vpd_data.csv', index=False)
+
+# Export data for panel 2 (SVAP and VAP)
+vap_data = pd.DataFrame({
+    'Year': years,
+    'SVAP_Anomaly': svap_anom,
+    'SVAP_StdDev': svap_sd,
+    'VAP_Anomaly': vap_anom,
+    'VAP_StdDev': vap_sd
+})
+vap_data.to_csv(current_dir + '/4_Figures/Fig02c_vap_data.csv', index=False)
+
+# Export data for panel 3 (SST and Ocean Evaporation)
+sst_oe_data = pd.DataFrame({
+    'Year': years,
+    'SST_Anomaly': sst_anom,
+    'SST_StdDev': sst_sd,
+    'OceanE_Anomaly': OE_anom,
+    'OceanE_StdDev': OE_sd
+})
+sst_oe_data.to_csv(current_dir + '/4_Figures/Fig02c_sst_oceane_data.csv', index=False)

@@ -1,37 +1,12 @@
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
 import matplotlib; matplotlib.use('Qt5Agg')
+import matplotlib.pyplot as plt
 import scipy.signal as ss
 import multiprocess as mp
 import os
 import rasterio
-
-def ar1_series_3yr(array):
-    yrs = 3  # 3,5,7
-    import pandas as pd
-    import numpy.ma as ma
-
-    def calc_ar1(x):
-        return ma.corrcoef(ma.masked_invalid(x[:-1]), ma.masked_invalid(x[1:]))[0, 1]
-    bands_year = 23
-
-    t = bands_year*yrs
-    ar1 = pd.Series(array).rolling(t, min_periods=11*yrs, center=True).apply(calc_ar1).values
-    return ar1
-
-def ar1_series_5yr(array):
-    yrs = 5  # 3,5,7
-    import pandas as pd
-    import numpy.ma as ma
-
-    def calc_ar1(x):
-        return ma.corrcoef(ma.masked_invalid(x[:-1]), ma.masked_invalid(x[1:]))[0, 1]
-    bands_year = 24
-
-    t = bands_year*yrs
-    ar1 = pd.Series(array).rolling(t, min_periods=11*yrs, center=True).apply(calc_ar1).values
-    return ar1
+from tqdm import tqdm
 
 def ar1_series_4yr(array):
     yrs = 4  # 3,5,7
@@ -45,7 +20,6 @@ def ar1_series_4yr(array):
     t = bands_year*yrs
     ar1 = pd.Series(array).rolling(t, center=True).apply(calc_ar1).values
     return ar1
-
 
 if __name__ == '__main__':
     current_dir = os.path.dirname(os.getcwd()).replace('\\', '/')
@@ -80,9 +54,10 @@ if __name__ == '__main__':
         print(name)
     EVI = np.array(EVI).T
 
-    EVI_sg = ss.savgol_filter(EVI.T, 4, 3, mode='nearest', axis=0)
-    EVI_sg[EVI_sg < 0] = 0
-    ser = EVI_sg.T
+    # EVI_sg = ss.savgol_filter(EVI.T, 4, 3, mode='nearest', axis=0)
+    # EVI_sg[EVI_sg < 0] = 0
+    # ser = EVI_sg.T
+    ser = EVI
     del EVI
     EVI_yr = np.zeros_like(ser)
 
@@ -110,16 +85,24 @@ if __name__ == '__main__':
         Evi_sea_rep[:, yr * 23:(yr + 1) * 23] = Evi_sea
     res = rm_offline - Evi_sea_rep
     res[np.isnan(res)]=0
-    res = res[::100,:]
+    # res = res[::100,:]
     # plt.figure(); plt.plot(np.nanmean(res, axis=0))
 
     del rm_offline, Evi_sea_rep
     divided_arrays = [row for row in res]
 
-    with mp.Pool(12) as pool:
-        results = list(pool.map(ar1_series_4yr, divided_arrays))
+    # with mp.Pool(12) as pool:
+    #     results = list(pool.map(ar1_series_4yr, divided_arrays))
+    # ar1_res_5sg = np.array(results)
+    print(f"开始计算 AR1（每像元） 共 {len(divided_arrays)} 个像元，使用进程数 {min(12, mp.cpu_count() - 1)} ...")
+    with mp.Pool(min(12, mp.cpu_count() - 1)) as pool:
+        results = []
+        for r in tqdm(pool.imap(ar1_series_4yr, divided_arrays), total=len(divided_arrays), desc='AR1 per-pixel',
+                      unit='pix'):
+            results.append(r)
     ar1_res_5sg = np.array(results)
 
     # plt.figure(); plt.plot(np.linspace(2000,2023+22/23,552),np.nanmean(ar1_res_5sg,axis=0))
-    # output_file = current_dir + '/2_Output/spatial_resilience/ar1_5yr_kndvi_modis_sg_rolling.npy'
-    # np.save(output_file, ar1_res_5sg)
+    output_file = current_dir + '/2_Output/spatial_resilience/ar1_5yr_kndvi_modis_sg_rolling_v0.npy'
+    np.save(output_file, ar1_res_5sg)
+

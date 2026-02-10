@@ -6,6 +6,8 @@ plt.tick_params(width=0.8,labelsize=14)
 from PIL import Image
 import multiprocess as mp
 import os
+import pandas as pd
+
 def smooth_2d_array(array, window_size):
     kernel = np.ones(window_size) / window_size
     padded_array = np.pad(array, ((0, 0), (window_size // 2, window_size // 2)), mode='edge')
@@ -203,8 +205,50 @@ if __name__ == '__main__':
     plt.pie(sizes, labels=labels, colors=colors_pie, autopct='%1.1f%%',
             startangle=90, textprops={'fontsize': 12})
     plt.tight_layout()
-    plt.savefig(current_dir + '/4_Figures/Fig05_resilience_trendy_shap_pie',
+    plt.savefig(current_dir + '/4_Figures/Fig05_resilience_trendy_shap_pie', 
                 dpi=900, bbox_inches='tight')
     plt.close()
+    
+    # Export data from Fig05_resilience_trendy01
+    # Get the minimum length between xtick and Trend arrays
+    n_models = min(len(xtick), Trend.shape[0])
+    
+    # Create DataFrame with truncated arrays
+    trendy_data = pd.DataFrame({
+        'Model': xtick[:n_models],
+        'Trend_2002_2007': Trend[:n_models, 0],
+        'Trend_2002_2007_StdErr': Trend[:n_models, 1],
+        'Trend_2008_2022': Trend[:n_models, 2],
+        'Trend_2008_2022_StdErr': Trend[:n_models, 3]
+    })
+    trendy_data.to_csv(current_dir + '/4_Figures/Fig05_trendy_trends.csv', index=False)
+
+    # Export data from Fig05_resilience_trendy_shap_summary
+    # Panel 1 - Temporal patterns
+    temporal_data = pd.DataFrame({
+        'Year': time_label_modis,
+        'TRENDY_TAC_Anomaly': tac_i_yr - tac_i_yr[0],
+        'TRENDY_TAC_StdDev': sd,
+        'MODIS_TAC_Anomaly': mean_val_modis,
+        'MODIS_TAC_StdErr': se
+    })
+    temporal_data.to_csv(current_dir + '/4_Figures/Fig05_temporal_patterns.csv', index=False)
+
+    # Panel 2 - SHAP values
+    shap_data = pd.DataFrame({
+        'Feature': feature_names,
+        'Mean_SHAP_Value': mean_shap,
+        'SHAP_StdErr': se_shap,
+        'Category': ['Climate' if c == '#878787' else 'Soil' if c == '#d6604d' else 'Vegetation' for c in colors]
+    })
+    shap_data.to_csv(current_dir + '/4_Figures/Fig05_shap_values.csv', index=False)
+
+    # Export data from Fig05_resilience_trendy_shap_pie
+    pie_data = pd.DataFrame({
+        'Category': ['Climate', 'Soil', 'Vegetation'],
+        'Total_SHAP_Value': [climate_vars, soil_vars, veg_vars],
+        'Percentage': [s/sum(sizes)*100 for s in sizes]
+    })
+    pie_data.to_csv(current_dir + '/4_Figures/Fig05_category_contributions.csv', index=False)
 
 

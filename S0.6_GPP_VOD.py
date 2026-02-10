@@ -32,6 +32,30 @@ def convert_float_array_to_dates(float_array):
     base_date = datetime(1858, 11, 17)
     dates = [(base_date + timedelta(days=float_val)).strftime('%Y-%m') for float_val in float_array]
     return dates
+
+def fill_nan_with_climatology(EVI, bands_year=12):
+    num_years = EVI.shape[1] // bands_year
+    climatology = np.zeros((EVI.shape[0], EVI.shape[1]))
+
+    for year in range(num_years):
+        if year < 2:
+            start = 0
+            end = 5 * bands_year
+        elif year > num_years - 3:
+            start = (num_years - 5) * bands_year
+            end = num_years * bands_year
+        else:
+            start = (year - 2) * bands_year
+            end = (year + 3) * bands_year
+
+        climatology[:, year * bands_year:(year + 1) * bands_year] = np.nanmean(
+            EVI[:, start:end].reshape(EVI.shape[0], 5, bands_year), axis=1
+        )
+
+    EVI_filled = np.where(np.isnan(EVI), climatology, EVI)
+
+    return EVI_filled
+
 # Open the NetCDF file
 current_dir = os.path.dirname(os.getcwd()).replace('\\', '/')
 filename = current_dir+'/1_Input/VODCA2GPP_v1.nc'
@@ -79,6 +103,20 @@ gpp_pf2[:,np.isnan(pf_mask2_rsz)]=np.nan
 gpp = gpp_pf2
 gpp_rsz = gpp.reshape((gpp.shape[0],gpp.shape[1]*gpp.shape[2])).T
 gpp_rsz = gpp_rsz[~np.isnan(gpp_rsz[:,0])]
+# remove the pixels, first two years are 0
+# make the 0 is nan, and then fill the nan values
+# then calculate the sd
+gpp_rsz[gpp_rsz==0] = np.nan
+mask = np.isnan(np.nanmean(gpp_rsz[:,:12],axis=1))
+mask2 = np.isnan(np.nanmean(gpp_rsz[:,-12:],axis=1))
+
+gpp_rsz = gpp_rsz[~(mask | mask2)]
+gpp_rsz = fill_nan_with_climatology(gpp_rsz,12)
+gpp_rsz = fill_nan_with_climatology(gpp_rsz,12)
+gpp_rsz = fill_nan_with_climatology(gpp_rsz,12)
+
+plt.figure(); plt.plot(gpp_rsz[4000,:])
+
 yr_num = 21
 bands_yr = 12
 
@@ -106,6 +144,8 @@ for yr in range(yr_num):
     Evi_sea_rep[:, yr * bands_yr:(yr + 1) * bands_yr] = Evi_sea
 res = rm_offline - Evi_sea_rep
 
+
+
 # gpp_sea_rep = np.zeros_like(rm_offline)
 # for yr in range(yr_num):
 #     gpp_sea_rep[:, yr * bands_yr:(yr + 1) * bands_yr] = gpp_sea
@@ -113,6 +153,6 @@ res = rm_offline - Evi_sea_rep
 
 plt.figure(); plt.plot(np.nanmean(res,axis=0))
 
-plt.figure(); plt.plot(np.linspace(2001,2021,21),np.nanmean(moving_sd(res), axis=1))
+plt.figure(); plt.plot(np.linspace(2001,2021,21),np.nanmedian(moving_sd(res), axis=1))
 
 plt.figure(); plt.plot(np.linspace(2001,2021,21),smooth_array(np.nanmean(moving_sd(res), axis=1),5))

@@ -1,7 +1,7 @@
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
-import matplotlib; matplotlib.use('Qt5Agg')
 import tifffile as tf
 from plot_NH import *
 import os
@@ -82,6 +82,7 @@ if __name__ == '__main__':
     fire_freq[np.isnan(pf_mask)] = np.nan
     fire_freq[fire_freq>3]=3
 
+
     BA1 = np.sum(fire_freq==1)*15**2/10000
     BA2 = np.sum(fire_freq == 2) * 15 ** 2/10000
     BA3 = np.sum(fire_freq == 3) * 15 ** 2/10000
@@ -130,6 +131,8 @@ if __name__ == '__main__':
                            transform=ccrs.PlateCarree())
     ax1.coastlines()
     ax1.set_boundary(circle, transform=ax1.transAxes)
+    figToPath = current_dir + '/4_Figures/Fig_fire_distribution_map'
+    plt.savefig(figToPath, dpi=900)
     # plt.colorbar(this1, orientation='horizontal', label='ar1_trend_00-23', fraction=0.03, pad=0.05)
 
     # burn area and date
@@ -273,5 +276,51 @@ if __name__ == '__main__':
 
     fig.tight_layout()
 
-    figToPath = current_dir + '/4_Figures/Fig06b_fire_effect_example'
+    figToPath = current_dir + '/4_Figures/Fig03_fire_effect_tac'
     plt.savefig(figToPath, dpi=900)
+
+    # Export data to CSV files
+    import pandas as pd
+
+    # Panel 1 data - Split into two DataFrames due to different time periods
+    # TAC time series data
+    tac_data = pd.DataFrame({
+        'Year': np.linspace(2000, 2023 + 22/23, 552),
+        'Fire_Area_TAC': np.nanmean(ar1_fireArea, axis=0),
+        'Non_Fire_Area_TAC': np.nanmean(ar1_nonfireArea, axis=0)
+    })
+    tac_data.to_csv(current_dir + '/4_Figures/Fig03_panel1_tac.csv', index=False)
+
+    # Burned area data
+    ba_data = pd.DataFrame({
+        'Year': np.linspace(2002, 2022, 21),
+        'Burned_Area_Fraction': (np.nansum(fire_annual, axis=0)/np.nansum(fire_annual, axis=0).sum())[1:22]
+    })
+    ba_data.to_csv(current_dir + '/4_Figures/Fig03_panel1_burned_area.csv', index=False)
+
+    # Rest of the export code remains the same
+    # Panel 2 data - Mean TAC by fire frequency
+    panel2_data = pd.DataFrame({
+        'Fire_Frequency': ['No Fire', '1 Fire', '2 Fires', '3+ Fires'],
+        'Mean_TAC': [ar1_nofire_mean, ar1_fire1_mean, ar1_fire2_mean, ar1_fire3_mean],
+        'TAC_StdErr': [ar1_nofire_sd, ar1_fire1_sd, ar1_fire2_sd, ar1_fire3_sd]
+    })
+    panel2_data.to_csv(current_dir + '/4_Figures/Fig03_panel2_means.csv', index=False)
+
+    # Panel 3 data - KNDVI temporal patterns
+    years = np.linspace(2000, 2023, yr_num)[2:-1]
+    panel3_data = pd.DataFrame({
+        'Year': years,
+        'KNDVI_2011_Fire': np.nanmean(evi_fire1_yr[indices_of_1 == 11, :], axis=0)[2:-1],
+        'KNDVI_2014_Fire': np.nanmean(evi_fire1_yr[indices_of_1 == 14, :], axis=0)[2:-1]
+    })
+    panel3_data.to_csv(current_dir + '/4_Figures/Fig03_panel3_kndvi.csv', index=False)
+
+    # Panel 4 data - TAC temporal patterns
+    time_series_tac = np.linspace(2000, 2023 + 22/23, 552)[46:-23]
+    panel4_data = pd.DataFrame({
+        'Year': time_series_tac,
+        'TAC_2011_Fire': np.nanmedian(ar1_fire1[indices_of_1 == 11, :], axis=0)[46:-23],
+        'TAC_2014_Fire': np.nanmedian(ar1_fire1[indices_of_1 == 14, :], axis=0)[46:-23]
+    })
+    panel4_data.to_csv(current_dir + '/4_Figures/Fig03_panel4_tac_temporal.csv', index=False)

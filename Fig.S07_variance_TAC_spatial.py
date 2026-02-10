@@ -1,8 +1,8 @@
 import numpy as np
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
-import matplotlib; matplotlib.use('Qt5Agg')
 import tifffile as tf
 from plot_NH import *
 import os
@@ -51,19 +51,28 @@ if __name__ == '__main__':
 
     trend_diff = trend_22 - trend_07
     np.sum(trend_diff[~np.isnan(trend_diff)] >= 0) / trend_diff[~np.isnan(trend_diff)].shape[0]
+    data = trend_07[~np.isnan(trend_07)]
+    n_total = len(data)
+    weights = np.ones(n_total) * 100 / n_total
 
     fig, axs = plt.subplots(1,3,figsize=(5,1.6))
-    n = axs[0].hist(trend_07[~np.isnan(trend_07)], 15, range=[-0.001*0.6,0.001*0.6],alpha=0, density=True)
+    n = axs[0].hist(trend_07[~np.isnan(trend_07)], 15, range=[-0.001*0.4,0.001*0.4],alpha=0, weights=weights,density=False)
     axs[0].bar(n[1][:8],n[0][:8],ec='k',width =n[1][1]-n[1][0],color='#92c5de')
     axs[0].bar(n[1][8:-1], n[0][8:], ec='k', width=n[1][1] - n[1][0], color='#f4a582')
     axs[0].set_ylabel('Frequency (%)')
 
-    n = axs[1].hist(trend_22[~np.isnan(trend_22)]+0.00001, 15, ec='k', range=[-0.0004*0.6, 0.0004*0.6], color='#d6604d', alpha=0, density=True)
+    data = trend_22[~np.isnan(trend_22)]
+    n_total = len(data)
+    weights = np.ones(n_total) * 100 / n_total
+    n = axs[1].hist(trend_22[~np.isnan(trend_22)]+0.00001, 15, ec='k', range=[-0.0004*0.4, 0.0004*0.4], color='#d6604d', alpha=0, weights=weights,density=False)
     axs[1].bar(n[1][:8], n[0][:8], ec='k', width=n[1][1] - n[1][0], color='#92c5de')
     axs[1].bar(n[1][8:-1], n[0][8:], ec='k', width=n[1][1] - n[1][0], color='#f4a582')
     axs[1].set_ylabel('Frequency (%)')
 
-    n = axs[2].hist(trend_diff[~np.isnan(trend_diff)]+0.00005, 15, ec='k', range=[-0.0012*0.6, 0.0012*0.6], color='#d6604d', alpha=0, density=True)
+    data = trend_diff[~np.isnan(trend_diff)]
+    n_total = len(data)
+    weights = np.ones(n_total) * 100 / n_total
+    n = axs[2].hist(trend_diff[~np.isnan(trend_diff)]+0.00005, 15, ec='k', range=[-0.0012*0.4, 0.0012*0.4], color='#d6604d', alpha=0, weights=weights,density=True)
     axs[2].bar(n[1][:8], n[0][:8], ec='k', width=n[1][1] - n[1][0], color='#92c5de')
     axs[2].bar(n[1][8:-1], n[0][8:], ec='k', width=n[1][1] - n[1][0], color='#f4a582')
     axs[2].set_ylabel('Frequency (%)')
@@ -104,12 +113,16 @@ if __name__ == '__main__':
     trend_07_map[np.isnan(trend_07_map)]=0
     kernel = np.ones((3, 3), np.float32) / 9
     trend_07_map = cv2.filter2D(trend_07_map, -1, kernel)
+    trend_07_map[trend_07_map<np.nanpercentile(trend_07, 1)]=0
+    trend_07_map[trend_07_map==0] = np.nan
+
 
     trend_23_map = pf_mask * 1
     trend_23_map[~np.isnan(trend_23_map)] = trend[:, 2]*23
     trend_23_map = trend_23_map[::-1, :]
     trend_23_map[np.isnan(trend_23_map)] = 0
     trend_23_map = cv2.filter2D(trend_23_map, -1, kernel)
+    trend_23_map[trend_23_map==0] = np.nan
 
     trend_diff_map = trend_23_map-trend_07_map
     # trend_all_map[~np.isnan(trend_all_map)] = trend[:, 4]*23
@@ -120,7 +133,7 @@ if __name__ == '__main__':
     fig = plt.figure(figsize=(12, 4))
     ax1 = fig.add_subplot(1, 3, 1, projection=ccrs.NorthPolarStereo())
     this1 = ax1.pcolormesh(grid_longitudes, grid_latitudes, trend_07_map,
-                           cmap='RdBu_r', vmin=-0.0004*0.6, vmax=0.0004*0.6,
+                           cmap='RdBu_r', vmin=np.nanpercentile(abs(trend_07_map),80)*-1, vmax=np.nanpercentile(abs(trend_07_map),80),
                            transform=ccrs.PlateCarree())
     ax1.coastlines()
     ax1.set_boundary(circle, transform=ax1.transAxes)
@@ -128,7 +141,7 @@ if __name__ == '__main__':
 
     ax2 = fig.add_subplot(1, 3, 2, projection=ccrs.NorthPolarStereo())
     this2 = ax2.pcolormesh(grid_longitudes, grid_latitudes, trend_23_map ,
-                           cmap='RdBu_r', vmin=-0.00015*0.6, vmax=0.00015*0.6,
+                           cmap='RdBu_r', vmin=np.nanpercentile(abs(trend_23_map),80)*-1, vmax=np.nanpercentile(abs(trend_23_map),80),
                            transform=ccrs.PlateCarree())
     ax2.coastlines()
     ax2.set_boundary(circle, transform=ax2.transAxes)
@@ -136,7 +149,7 @@ if __name__ == '__main__':
 
     ax3 = fig.add_subplot(1, 3, 3, projection=ccrs.NorthPolarStereo())
     this3 = ax3.pcolormesh(grid_longitudes, grid_latitudes, trend_diff_map,
-                           cmap='RdBu_r', vmin=-0.0004*0.6, vmax=0.0004*0.6,
+                           cmap='RdBu_r', vmin=np.nanpercentile(abs(trend_diff_map),80)*-1, vmax=np.nanpercentile(abs(trend_diff_map),80),
                            transform=ccrs.PlateCarree())
     ax3.coastlines()
     ax3.set_boundary(circle, transform=ax3.transAxes)

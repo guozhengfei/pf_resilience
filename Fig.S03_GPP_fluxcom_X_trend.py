@@ -111,7 +111,7 @@ coef = st.linregress(np.linspace(2002,2021,20),np.nanmean(gpp_yr, axis=0)[1:])
 ax0.plot([2002,2021],[2002*coef.slope+coef.intercept,2021*coef.slope+coef.intercept],'r-')
 ax1 = fig.add_subplot(1, 2, 2, projection=ccrs.NorthPolarStereo())
 this1 = ax1.pcolormesh(grid_longitudes, grid_latitudes, trend_07_map,
-                       cmap='RdBu', vmin=-0.02, vmax=0.02,
+                       cmap='RdBu', vmin=np.nanpercentile(abs(trend_07_map),80)*-1, vmax=np.nanpercentile(abs(trend_07_map),80),
                        transform=ccrs.PlateCarree())
 ax1.coastlines()
 ax1.set_boundary(circle, transform=ax1.transAxes)
@@ -126,3 +126,5 @@ plt.xlim([-0.02,0.04])
 fig.tight_layout()
 figToPath = current_dir + '/4_Figures/FigS03_GPP_trend_fluxcom_hist'
 plt.savefig(figToPath, dpi=900)
+
+sum(trends[:,0]<0)/trends.shape[0]

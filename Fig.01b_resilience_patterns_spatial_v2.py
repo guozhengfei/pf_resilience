@@ -1,9 +1,7 @@
-import numpy as np
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
 import matplotlib; matplotlib.use('Qt5Agg')
-import tifffile as tf
 from plot_NH import *
 import os
 from PIL import Image
@@ -145,58 +143,45 @@ if __name__ == '__main__':
     fig.tight_layout()
     figToPath = current_dir + '/4_Figures/Fig01_resilience_patterns_spatialal_v2'
     plt.savefig(figToPath, dpi=900)
-
-    # #trend change grouped by PFT
-    # PFT_1d = pf_mask[~np.isnan(pf_mask)]
-    # PFT = PFT_1d
-    #
-    # set(PFT_1d.reshape(-1))
-    # for i in [1,3,4,5,6,7,8,9,10,11]:
-    #     frac = np.nansum(PFT==i)/np.nansum(~np.isnan(PFT_1d))
-    #     print(i,frac)
-    #
-    # plt.figure(figsize=(4,3))
-    # # Needle forest
-    # index = (PFT==1) | (PFT==3)
-    # trend_10 = trend_07[index]
-    # trend_23 = trend_22[index]
-    # plt.bar(0,np.nanmean(trend_10),yerr=np.nanstd(trend_10)*0.05,color='C0',width=0.3,ec='k', hatch='//',alpha=0.7)
-    # plt.bar(0.3,np.nanmean(trend_23),yerr=np.nanstd(trend_23)*0.05,color='C0',width=0.3,ec='k',alpha=0.7)
-    # np.sum(trend_10>0)/np.sum(~np.isnan(trend_10))
-    #
-    # # Mixed forest
-    # index = (PFT==4) | (PFT==5)
-    # trend_10 = trend_07[index]
-    # trend_23 = trend_22[index]
-    # plt.bar(1,np.nanmean(trend_10),yerr=np.nanstd(trend_10)*0.05,color='C1',width=0.3,ec='k', hatch='//',alpha=0.7)
-    # plt.bar(1.3,np.nanmean(trend_23),yerr=np.nanstd(trend_23)*0.05,color='C1',width=0.3,ec='k',alpha=0.7)
-    # np.sum(trend_10>0)/np.sum(~np.isnan(trend_10))
-    #
-    # #Shrubland
-    # index = (PFT==6) | (PFT==7)
-    # trend_10 = trend_07[index]
-    # trend_23 = trend_22[index]
-    # plt.bar(2,np.nanmean(trend_10),yerr=np.nanstd(trend_10)*0.05,color='C2',width=0.3,ec='k', hatch='//',alpha=0.7)
-    # plt.bar(2.3,np.nanmean(trend_23),yerr=np.nanstd(trend_23)*0.05,color='C2',width=0.3,ec='k',alpha=0.7)
-    # np.sum(trend_10>0)/np.sum(~np.isnan(trend_10))
-    #
-    # #Savana
-    # index = (PFT==8) | (PFT==9)
-    # trend_10 = trend_07[index]
-    # trend_23 = trend_22[index]
-    # plt.bar(3,np.nanmean(trend_10),yerr=np.nanstd(trend_10)*0.05,color='C3',width=0.3,ec='k', hatch='//',alpha=0.7)
-    # plt.bar(3.3,np.nanmean(trend_23),yerr=np.nanstd(trend_23)*0.05,color='C3',width=0.3,ec='k',alpha=0.7)
-    # np.sum(trend_10>0)/np.sum(~np.isnan(trend_10))
-    #
-    # #Grass
-    # index = (PFT==10)
-    # trend_10 = trend_07[index]
-    # trend_23 = trend_22[index]
-    # plt.bar(4,np.nanmean(trend_10),yerr=np.nanstd(trend_10)*0.05,color='C4',width=0.3,ec='k', hatch='//',alpha=0.7)
-    # plt.bar(4.3,np.nanmean(trend_23),yerr=np.nanstd(trend_23)*0.05,color='C4',width=0.3,ec='k',alpha=0.7)
-    #
-    # np.sum(trend_10>0)/np.sum(~np.isnan(trend_10))
-    # fig.tight_layout()
-    # figToPath = current_dir + '/4_Figures/Fig01_resilience_PFT'
-    # plt.savefig(figToPath, dpi=600)
-
+    
+    # Export spatial patterns as GeoTIFF files
+    # Get the transform and CRS from the original dataset
+    transform = dataset.transform
+    crs = dataset.crs
+    
+    # Create new transform for the resampled (::3) data
+    new_transform = rasterio.Affine(transform.a * 3, transform.b, transform.c,
+                                  transform.d, transform.e * 3, transform.f)
+    
+    # Export trend 2000-2007 map
+    output_path = current_dir + '/4_Figures/trend_2000_2007.tif'
+    with rasterio.open(output_path, 'w', driver='GTiff',
+                      height=trend_07_map.shape[0],
+                      width=trend_07_map.shape[1],
+                      count=1,
+                      dtype=trend_07_map.dtype,
+                      crs=crs,
+                      transform=new_transform) as dst:
+        dst.write(trend_07_map, 1)
+    
+    # Export trend 2008-2022 map
+    output_path = current_dir + '/4_Figures/trend_2008_2022.tif'
+    with rasterio.open(output_path, 'w', driver='GTiff',
+                      height=trend_23_map.shape[0],
+                      width=trend_23_map.shape[1],
+                      count=1,
+                      dtype=trend_23_map.dtype,
+                      crs=crs,
+                      transform=new_transform) as dst:
+        dst.write(trend_23_map, 1)
+    
+    # Export trend difference map
+    output_path = current_dir + '/4_Figures/trend_difference.tif'
+    with rasterio.open(output_path, 'w', driver='GTiff',
+                      height=trend_diff_map.shape[0],
+                      width=trend_diff_map.shape[1],
+                      count=1,
+                      dtype=trend_diff_map.dtype,
+                      crs=crs,
+                      transform=new_transform) as dst:
+        dst.write(trend_diff_map, 1)

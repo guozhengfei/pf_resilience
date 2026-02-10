@@ -86,8 +86,11 @@ if __name__ == '__main__':
             tac_i_rsp = tac_i.reshape(19,12)
             tac_i_yr = np.mean(tac_i_rsp,axis=1)
             sd = np.std(tac_i_rsp,axis=1)
-            axs[row,col].plot(time_label_modis,tac_i_yr-tac_i_yr[0],color = cl,lw=2)
-            axs[row, col].fill_between(time_label_modis,tac_i_yr-tac_i_yr[0]+sd,tac_i_yr-tac_i_yr[0]-sd,color = cl,alpha=0.3)
+            # axs[row,col].plot(time_label_modis,tac_i_yr-tac_i_yr[0],color = cl,lw=2)
+            axs[row,col].plot(time_label_modis,tac_i_yr,color = cl,lw=2)
+            # axs[row, col].fill_between(time_label_modis,tac_i_yr-tac_i_yr[0]+sd,tac_i_yr-tac_i_yr[0]-sd,color = cl,alpha=0.3)
+            axs[row, col].fill_between(time_label_modis,tac_i_yr+sd,tac_i_yr-sd,color = cl,alpha=0.3)
+
             axs[row, col].set_title(xtick[i])
             i = i + 1
 

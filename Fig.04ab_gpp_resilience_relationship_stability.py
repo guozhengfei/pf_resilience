@@ -1,9 +1,10 @@
 import numpy as np
 from PIL import Image
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
-import matplotlib; matplotlib.use('Qt5Agg')
+
 import scipy.signal as ss
 import multiprocess as mp
 import os
@@ -83,19 +84,29 @@ if __name__ == '__main__':
     Pr_sd = smooth_2d_array(moving_sd(Pr,23).T, 5)
     # plt.figure(); plt.plot(np.nanmean(Pr_sd, axis=0))
 
-    # CO2
-    co2_df = pd.read_csv(current_dir + '/1_Input/data for drivers/co2_mm_mlo_v2.csv')
-    co2 = co2_df['deseasonalized'][502:].values
-    interpolated_array = np.empty((23 * 23))
-    x = np.arange(co2.shape[0])
-    x_new = np.linspace(0, co2.shape[0] - 1, 23 * 23)
-    f = interp1d(x, co2, kind='linear')
-    interpolated_values = f(x_new)
-    co2_new = interpolated_values
-    Co2_2d = np.tile(co2_new, (gpp_flux.shape[0], 1))
-    Co2 = Co2_2d[:,46:46+460]
-    co2_sd = smooth_2d_array(moving_sd(Co2,23).T, 5)
-    # plt.figure(); plt.plot(np.nanmedian(co2_sd, axis=0))
+    # VPD
+    vpd = np.load(current_dir + '/1_Input/data for drivers/vpd_16d_rm_seasonality.npy')[:, 460:460 + 460]
+    vpd_sd = smooth_2d_array(moving_sd(vpd, 23).T, 5)
+    # plt.figure(); plt.plot(np.nanmean(vpd_sd, axis=0))
+
+    # SM
+    sm = np.load(current_dir + '/1_Input/data for drivers/sm_16d_rm_seasonality.npy')[:, 460:460 + 460]
+    sm_sd = smooth_2d_array(moving_sd(sm, 23).T, 5)
+    # plt.figure(); plt.plot(np.nanmean(sm_sd, axis=0))
+
+    # # CO2
+    # co2_df = pd.read_csv(current_dir + '/1_Input/data for drivers/co2_mm_mlo_v2.csv')
+    # co2 = co2_df['deseasonalized'][502:].values
+    # interpolated_array = np.empty((23 * 23))
+    # x = np.arange(co2.shape[0])
+    # x_new = np.linspace(0, co2.shape[0] - 1, 23 * 23)
+    # f = interp1d(x, co2, kind='linear')
+    # interpolated_values = f(x_new)
+    # co2_new = interpolated_values
+    # Co2_2d = np.tile(co2_new, (gpp_flux.shape[0], 1))
+    # Co2 = Co2_2d[:,46:46+460]
+    # co2_sd = smooth_2d_array(moving_sd(Co2,23).T, 5)
+    # # plt.figure(); plt.plot(np.nanmedian(co2_sd, axis=0))
 
     fig, axs = plt.subplots(1, 2, figsize=(10 * 0.75, 3.5 * 0.75))
     axs[0].plot(np.linspace(2002,2021,20), np.nanmean(gpp_sd_sif/3, axis=0)[2:-1],'#92c5de',lw=1)
@@ -138,8 +149,33 @@ if __name__ == '__main__':
     ax1.tick_params(axis='y', colors='#fc8d62')
     ax2.tick_params(axis='y', colors='#8da0cb')
     fig.tight_layout()
-    figToPath = current_dir + '/4_Figures/Fig07_tac_gpp'
-    plt.savefig(figToPath, dpi=900)
+    figToPath = current_dir + '/4_Figures/Fig04ab_tac_gpp'
+    # plt.savefig(figToPath, dpi=900)
+
+    # Export data to CSV files
+    years = np.linspace(2002, 2021, 20)
+    
+    # # Panel a data - GPP and TAC
+    # panel_a_data = pd.DataFrame({
+    #     'Year': years,
+    #     'GPP_SD_GOSIF': np.nanmean(gpp_sd_sif/3, axis=0)[2:-1],
+    #     'GPP_SD_FluxCom': np.nanmean(gpp_sd, axis=0)[1:],
+    #     'GPP_SD_Ensemble': gpp_ensmb_sd,
+    #     'TAC': np.nanmean(TAC_yr, axis=0)
+    # })
+    # panel_a_data.to_csv(current_dir + '/4_Figures/Fig04_panel_a_gpp_tac.csv', index=False)
+
+    # Panel b data - Climate variables
+    panel_b_data = pd.DataFrame({
+        'Year': years,
+        'Temperature_SD': np.nanmean(Ta_sd, axis=0),
+        'Solar_Radiation_SD': np.nanmean(Srad_sd, axis=0),
+        # 'Precipitation_SD': np.nanmean(Pr_sd, axis=0),
+        'VPD_SD': np.nanmean(vpd_sd, axis=0),
+        'SM_SD': np.nanmean(sm_sd, axis=0),
+    })
+    panel_b_data.to_csv(current_dir + '/4_Figures/Fig.4/Fig04_panel_b_climate_2026.csv', index=False)
+
 
 
 

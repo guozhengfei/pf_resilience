@@ -1,9 +1,9 @@
 import numpy as np
 import pymannkendall as mk
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
-import matplotlib; matplotlib.use('Qt5Agg')
 from PIL import Image
 import rasterio
 import cv2
@@ -151,19 +151,33 @@ if __name__ == '__main__':
     ax4.set_xlim([-0.32 - 0.6, 4.66 - 0.6])
     ax4.set_xticks(range(4), ['D', 'S', 'C', 'I'])
     fig.tight_layout()
-    figToPath = current_dir + '/4_Figures/Fig07_causal_analysis_tac_gpp'
+    figToPath = current_dir + '/4_Figures/Fig04_causal_analysis_tac_gpp'
     plt.savefig(figToPath, dpi=900)
 
-    fig, axs = plt.subplots(1, 1, figsize=(1.3, 1.5))
-    frac1 = np.sum(vpd_tac[:, 1] <= 0.08) / vpd_tac.shape[0]
-    # frac2 = np.sum((vpd_tac[:, 1] > 0.01) & (vpd_tac[:, 1] <= 0.08)) / vpd_tac.shape[0]
-    frac3 = 1 - frac1# - frac2
-    axs.bar([0, 1], [frac1, frac3], color=colors[1:],width=0.4)
-    axs.set_ylabel('Fraction')
-    fig.tight_layout()
-    figToPath = current_dir + '/4_Figures/Fig07_causal_analysis_hist_tac_gpp'
-    plt.savefig(figToPath, dpi=600)
+    causal_vpd_map = np.flipud(causal_vpd_map)  # Flip the data vertically
+    # Export spatial causal analysis map as GeoTIFF
+    transform = dataset.transform
+    new_transform = rasterio.Affine(transform.a * 3, transform.b, transform.c,
+                                  transform.d, transform.e * 3, transform.f)
+    
+    output_path = current_dir + '/4_Figures/Fig04_causal_map.tif'
+    with rasterio.open(output_path, 'w', driver='GTiff',
+                      height=causal_vpd_map.shape[0],
+                      width=causal_vpd_map.shape[1],
+                      count=1,
+                      dtype=causal_vpd_map.dtype,
+                      crs=dataset.crs,
+                      transform=new_transform) as dst:
+        dst.write(causal_vpd_map, 1)
 
-
-
-
+    # Export convergence data to CSV
+    import pandas as pd
+    
+    convergence_data = pd.DataFrame({
+        'Time_Step': range(5, 20),
+        'Convergence_Mean': conv_mean,
+        'Convergence_StdDev': conv_sd
+    })
+    
+    csv_path = current_dir + '/4_Figures/Fig04_convergence_data.csv'
+    convergence_data.to_csv(csv_path, index=False)

@@ -4,3 +4,6 @@ __pycache__/
 *.log
 *.csv
 *.npy
+
+# Ignore files and directories that start with capital Z
+Z*

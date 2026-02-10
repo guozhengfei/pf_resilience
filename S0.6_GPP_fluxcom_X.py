@@ -1,11 +1,11 @@
 import netCDF4 as nc
 import numpy as np
 import tifffile as tf
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import matplotlib;
 import os
 import cv2
-matplotlib.use('Qt5Agg')
 from PIL import Image
 
 
@@ -56,7 +56,7 @@ for name in filenames:
     data = np.ma.getdata(data)
     dataset.close()
     # plt.figure(); plt.imshow(pf_mask2)
-    # plt.figure(); plt.plot(gpp_i[:,100,200])
+    # plt.figure(); plt.plot(data[:,61,556])
     rows = 360
     data_pf = data[:, int(np.round((90 - 83.7) / 180 * rows)):int(np.round((90 - 27.0) / 180 * rows)), :]
 

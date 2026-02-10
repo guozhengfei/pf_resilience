@@ -6,7 +6,7 @@ import matplotlib;
 import os
 import cv2
 
-matplotlib.use('Qt5Agg')
+# matplotlib.use('Qt5Agg')
 # Open the NetCDF file
 current_dir = os.path.dirname(os.getcwd()).replace('\\', '/')
 filenames = os.listdir(current_dir+'/1_Input/CRU/vap/')
@@ -50,6 +50,7 @@ Tmp = np.concatenate(Tmp, axis=0)[12:,:,:]
 ea_star = 0.61078 * np.exp(17.27 * Tmp / (Tmp + 237.3))
 VPD = ea_star*10-Vap
 
+
 ## pf_mask
 pf_mask_path2 = current_dir + '/1_Input/landcover_export_2010_5km.tif'
 pf_mask_path3 = current_dir + '/1_Input/landcover_export_2020_5km.tif'
@@ -60,8 +61,8 @@ pf_mask = pf_mask2[::3, ::3]
 pf_mask = cv2.resize(pf_mask,(Tmp.shape[2],Tmp.shape[1]),cv2.INTER_NEAREST)
 pf_mask[pf_mask <= 0] = np.nan
 pf_mask[pf_mask > 12] = np.nan
-
 # plt.figure(); plt.imshow(pf_mask)
+
 VPD = VPD[:,~np.isnan(pf_mask)].T
 
 VPD_rsz = VPD.reshape(VPD.shape[0],41,12)

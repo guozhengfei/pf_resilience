@@ -1,9 +1,9 @@
 import numpy as np
+import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 plt.rc('font',family='Arial')
 plt.tick_params(width=0.8,labelsize=14)
-import matplotlib; matplotlib.use('Qt5Agg')
 import tifffile as tf
 from plot_NH import *
 import os
@@ -151,5 +151,22 @@ if __name__ == '__main__':
     axs[1].axhline(y=0, color='k', linestyle='--')
 
     fig.tight_layout()
-    figToPath = current_dir + '/4_Figures/Fig03_resilience_drivers'
+    figToPath = current_dir + '/4_Figures/Fig02_resilience_drivers'
     plt.savefig(figToPath, dpi=900)
+    
+    # Export data values to CSV
+    import pandas as pd
+    
+    # Create dictionary with data
+    data_dict = {
+        'Variable': ['VPD', 'Srad', 'Pr', 'Ta', 'Ts', 'SM', 'ALT', 'kNDVI', 'GSL', 'LAI', 'All'],
+        'Period_2002_2007': d_tac1 + [np.sum(d_tac1)],  # Add sum as last value
+        'Period_2008_2022': d_tac2 + [np.sum(d_tac2)],  # Add sum as last value
+        'Standard_Error2002_2007': list(sens_std * 2.1) + [0.0025 * 2.05],  # Add error for sum
+        'Standard_Error2008_2022': list(sens_std * 2.05) + [0.0025 * 2.05]  # Add error for sum
+    }
+    
+    # Create DataFrame and export to CSV
+    df = pd.DataFrame(data_dict)
+    csv_path = current_dir + '/4_Figures/Fig02b_resilience_drivers_data.csv'
+    df.to_csv(csv_path, index=False)
