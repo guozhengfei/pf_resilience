@@ -149,7 +149,7 @@ if __name__ == '__main__':
     resilience_spatial_plot(ax3, ax4, trend2, scale=23, k_size=int(3))
     fig.tight_layout()
     figToPath = current_dir + '/4_Figures/R0201_TAC_VOD_brdf_spatial'
-    plt.savefig(figToPath, dpi=900)
+    # plt.savefig(figToPath, dpi=900)
 
     # BRDF
     ar1_5yr_modis = np.load(current_dir + '/2_Output/spatial_resilience/ar1_5yr_kndvi_modis_sg_rolling_brdf.npy')
@@ -162,10 +162,10 @@ if __name__ == '__main__':
     ar1_5yr_modis = np.load(current_dir + '/2_Output/spatial_resilience/ar1_5yr_vod_sg_rolling.npy')
     tac = ar1_5yr_modis
     tac[tac == 0] = np.nan;
-    resilience_temporal_plot(axs[1], tac, band_years=23,offset=1)
+    resilience_temporal_plot(axs[1], tac, band_years=23,offset=0)
     fig.tight_layout()
     figToPath = current_dir + '/4_Figures/R0201_TAC_VOD_brdf_temporal'
-    plt.savefig(figToPath, dpi=900)
+    # plt.savefig(figToPath, dpi=900)
     # GPP data
 
 

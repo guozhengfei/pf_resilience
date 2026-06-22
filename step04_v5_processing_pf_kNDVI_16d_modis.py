@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
+plt.rc('font',family='Arial')
+plt.tick_params(width=1.5,labelsize=14)
 import scipy.signal as ss
 import multiprocess as mp
 import rasterio
@@ -64,15 +66,42 @@ if __name__ == '__main__':
         EVI.append(evi_val)
         print(name)
     EVI2 = np.array(EVI).T
-    EVI2[EVI2<0.1]=np.nan
+    EVI2[EVI2<0.05]=np.nan
     # plt.figure();plt.hist(EVI2.flatten(),50)
     ratio = np.sum(np.isnan(EVI2),axis=1)/EVI2.shape[1]
-    EVI2 = EVI2[ratio<0.65,:]
+    EVI2 = EVI2[ratio<0.5,:]
     EVI2 = fill_nan_with_climatology(EVI2,23)
     EVI2 = fill_nan_with_climatology(EVI2,23)
     EVI2 = fill_nan_with_climatology(EVI2,23)
 
     evi_yr = EVI2.reshape(EVI2.shape[0], 24, 23)
-    evi_yr = np.nanmean(evi_yr, axis=2)
+    evi_yr = np.nanmean(evi_yr[:,:,7:-7], axis=2) # only focus on growing season
 
-    plt.figure(); plt.plot(np.linspace(2000,2022,23),np.nanmean(evi_yr,axis=0)[:-1],'-o')
+    x = np.linspace(2000, 2022, 23)
+    y = np.nanmean(evi_yr, axis=0)[:-1]
+
+    # Calculate linear fit
+    slope, intercept = np.polyfit(x, y, 1)
+    fit_line = slope * x + intercept
+
+    # 2. Create plot with custom figure size (width=8, height=5 inches)
+    fig, ax = plt.subplots(figsize=(4.5*0.9, 3.5*0.9))
+
+    # 3. Plot with custom line widths
+    ax.plot(x, y, '-', linewidth=2.0, label='Data')
+    ax.plot(x, fit_line, '-', color='C1', linewidth=2, label=f'Linear Fit')
+
+    # 4. Hide the top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    ax.spines['left'].set_linewidth(1.5)
+    ax.spines['bottom'].set_linewidth(1.5)
+    # 5. Customize the axis scales (ticks)
+    # direction='out' pushes them outside the plot area
+    # length sets the size of the tick marks
+    ax.tick_params(axis='both', which='major', direction='out', length=7, width=1.5, labelsize=17)
+    # Optional cleanups
+    ax.legend(frameon=False)
+    plt.tight_layout()
+    plt.show()

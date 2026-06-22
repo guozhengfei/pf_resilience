@@ -1,10 +1,10 @@
 import numpy as np
 import pymannkendall as mk
+import matplotlib;
+matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font', family='Arial')
 plt.tick_params(width=0.8, labelsize=14)
-import matplotlib;
-matplotlib.use('Qt5Agg')
 from PIL import Image
 import multiprocess as mp
 import os
@@ -42,10 +42,10 @@ if __name__ == '__main__':
     index = (pf_mask == 4) | (pf_mask == 5) # MF
     pf_mask[index]=0.3
 
-    index = (pf_mask == 6) | (pf_mask == 7) # SAV
+    index = (pf_mask == 6) | (pf_mask == 7) # SHR
     pf_mask[index] = 0.4
 
-    index = (pf_mask == 8) | (pf_mask == 9) # SHR
+    index = (pf_mask == 8) | (pf_mask == 9) # SAV
     pf_mask[index] = 0.5
 
     index = (pf_mask == 10) # GRA
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     fig, axs = plt.subplots(1, figsize=(3 * 0.8, 3 * 0.8))
     axs.bar(range(7), fracs, ec='k', width=0.5, color=custom_colors)
-    xtick = ['Non-veg', 'NF', 'MF', 'SAV', 'SHR', 'GRA', 'Change']
+    xtick = ['Non-veg', 'NF', 'MF', 'SHR', 'SAV', 'GRA', 'Change']
     axs.set_xticks(range(7), xtick, rotation=90)
     axs.set_ylabel('Frequency')
     fig.tight_layout()

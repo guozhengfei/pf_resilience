@@ -11,7 +11,7 @@ def read_nc_files(root_folder):
 
     for root, dirs, files in os.walk(root_folder):
         for file in files:
-            if file.endswith(".nc"):
+            if file.endswith(".nc") and not file.startswith("."):
                 nc_files.append(os.path.join(root, file))
     return nc_files
 
@@ -23,6 +23,7 @@ filenames = read_nc_files(root_folder)
 
 oceanE = []
 for name in filenames:
+
     dataset = nc.Dataset(name)
     # Read data from a specific variable
     variable_name = 'evapr'
@@ -38,12 +39,13 @@ for name in filenames:
     evap_pf = evap[:, :55, :]
     # evap_pf[evap_pf<=0]=np.nan
     oceanE.append(evap_pf)
+    # plt.figure();plt.imshow(evap_pf[6,:,:])
 
 oceanE_arr = np.concatenate(oceanE,axis=0).T
 oceanE_arr_month = np.nanmean(np.nanmean(oceanE_arr,axis=0),axis=0)
 oceanE_arr_yr = oceanE_arr_month.reshape(33,12)
 plt.figure(); plt.plot(np.nanmean(oceanE_arr_yr,axis=1))
-np.save(current_dir+'/1_Input/data for drivers/oceanE_yr_1990-2022.npy',oceanE_arr_yr)
+# np.save(current_dir+'/1_Input/data for drivers/oceanE_yr_1990-2022.npy',oceanE_arr_yr)
 
 # plt.figure(); plt.imshow(evap[11,:,:])
 # oceanE_arr_rsp = oceanE_arr.reshape((oceanE_arr.shape[0],oceanE_arr.shape[1]*oceanE_arr.shape[2])).T
@@ -55,44 +57,44 @@ np.save(current_dir+'/1_Input/data for drivers/oceanE_yr_1990-2022.npy',oceanE_a
 # plt.figure();plt.plot(np.nanmean(oceanE_yr_mean_rsp,axis=1))
 
 
-# SST data
-import tifffile as tf
-Data_folder = current_dir+'/1_Input/data for drivers/'
-sst01 = tf.imread(Data_folder + 'SST_monthly_pf-0000000000-0000000000.tif')
-sst02 = tf.imread(Data_folder + 'SST_monthly_pf-0000000000-0000001280.tif')
-sst = np.concatenate((sst01, sst02), axis=1)[::3, ::3, ]
-sst = sst[:, :-1, :].astype(float)*0.01
-sst = sst[:, :, 96:]
-
-sst_month_mean = np.nanmean(np.nanmean(sst,axis=0),axis=0)
-sst_yr_mean = sst_month_mean.reshape(33,12)
-
-plt.figure(); plt.plot(np.nanmean(sst_yr_mean,axis=1))
-np.save(current_dir+'/1_Input/data for drivers/SST_yr_1990-2022.npy', sst_yr_mean)
-
-# OceanE = tf.imread(current_dir+'/1_Input/ocean_Evap.tif').astype(float)[::3, ::3, ]
-# OceanE = OceanE[:,:-1,:]
-# OceanE[np.isnan(sst[:,:,3]),:]=np.nan
+# # SST data
+# import tifffile as tf
+# Data_folder = current_dir+'/1_Input/data for drivers/'
+# sst01 = tf.imread(Data_folder + 'SST_monthly_pf-0000000000-0000000000.tif')
+# sst02 = tf.imread(Data_folder + 'SST_monthly_pf-0000000000-0000001280.tif')
+# sst = np.concatenate((sst01, sst02), axis=1)[::3, ::3, ]
+# sst = sst[:, :-1, :].astype(float)*0.01
+# sst = sst[:, :, 96:]
 #
-# OceanE_mean = np.nanmean(np.nanmean(OceanE,axis=0),axis=0)
-# plt.figure(); plt.plot(OceanE_mean)
-
-
-# sst2 = []
-# for i in range(sst.shape[2]):
-#     arr = sst[:,:,i]*1
-#     arr_rsz = cv2.resize(arr,(360,40))
-#     sst2.append(arr_rsz)
+# sst_month_mean = np.nanmean(np.nanmean(sst,axis=0),axis=0)
+# sst_yr_mean = sst_month_mean.reshape(33,12)
 #
-# sst2_arr = np.array(sst2)
-# sst2_arr_1d = sst2_arr.reshape(-1)
-# oceanE_arr_1d = oceanE_arr.reshape(-1)
-# mask = np.isnan(sst2_arr_1d) | np.isnan(oceanE_arr_1d)
+# plt.figure(); plt.plot(np.nanmean(sst_yr_mean,axis=1))
+# np.save(current_dir+'/1_Input/data for drivers/SST_yr_1990-2022.npy', sst_yr_mean)
 #
-# x = sst2_arr_1d[~mask]
-# y = oceanE_arr_1d[~mask]
-# plt.figure(); plt.plot(x,y,'.')
-# import scipy.stats as st
-# st.linregress(x,y)
+# # OceanE = tf.imread(current_dir+'/1_Input/ocean_Evap.tif').astype(float)[::3, ::3, ]
+# # OceanE = OceanE[:,:-1,:]
+# # OceanE[np.isnan(sst[:,:,3]),:]=np.nan
+# #
+# # OceanE_mean = np.nanmean(np.nanmean(OceanE,axis=0),axis=0)
+# # plt.figure(); plt.plot(OceanE_mean)
+#
+#
+# # sst2 = []
+# # for i in range(sst.shape[2]):
+# #     arr = sst[:,:,i]*1
+# #     arr_rsz = cv2.resize(arr,(360,40))
+# #     sst2.append(arr_rsz)
+# #
+# # sst2_arr = np.array(sst2)
+# # sst2_arr_1d = sst2_arr.reshape(-1)
+# # oceanE_arr_1d = oceanE_arr.reshape(-1)
+# # mask = np.isnan(sst2_arr_1d) | np.isnan(oceanE_arr_1d)
+# #
+# # x = sst2_arr_1d[~mask]
+# # y = oceanE_arr_1d[~mask]
+# # plt.figure(); plt.plot(x,y,'.')
+# # import scipy.stats as st
+# # st.linregress(x,y)
 
 
