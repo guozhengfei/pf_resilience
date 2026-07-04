@@ -2,7 +2,7 @@
 
 Python and R scripts for processing permafrost-domain vegetation, climate, fire, flux-site, and moisture-pathway data; calculating temporal-autocorrelation resilience metrics; and generating manuscript figures.
 
-This is a script-based analysis repository, not an installable package. Most scripts expect large data folders beside this code folder.
+This is a script-based analysis repository, not an installable package.
 
 ## System Requirements
 
