@@ -16,14 +16,6 @@ Expected to work on recent Linux or macOS systems with equivalent geospatial lib
 
 No non-standard hardware is required. A normal desktop is enough for downstream figure scripts. Full raw-data processing is memory and CPU intensive; several scripts use `mp.Pool(120)` or `mp.Pool(240)`, so reduce these values on smaller machines.
 
-Local data used during development:
-
-- `1_Input`: about 202 GB
-- `2_Output`: about 13 GB
-- `4_Figures`: about 549 MB
-
-These data folders are not included in the GitHub repository.
-
 ### Dependencies
 
 Tested Python packages:
@@ -129,13 +121,6 @@ Expected output:
 ../4_Figures/Fig.1/Fig01_temporal_patterns_2026.csv
 ```
 
-The CSV contains annual resilience summaries by vegetation class:
-
-```text
-Year, Needle_Forest, Mixed_Forest, Savanna, Shrubland, Grassland,
-All_Mean, Standard_Error
-```
-
 Expected demo runtime on a normal desktop: 1-5 minutes, assuming processed `.npy` files are already present.
 
 ## Instructions for Use
@@ -153,7 +138,6 @@ Main MODIS kNDVI resilience workflow:
 ```bash
 python step04_v4_processing_pf_kNDVI_16d_modis_final.py
 python step05_resilience_trend_modis.py
-python step06_tac_breaking_point_detection.py
 ```
 
 Main outputs:
@@ -161,7 +145,6 @@ Main outputs:
 ```text
 ../2_Output/spatial_resilience/ar1_5yr_kndvi_modis_sg_rolling.npy
 ../2_Output/spatial_resilience/resilience_trend_modis.npy
-../2_Output/break_points_modis.npy
 ```
 
 Selected figure scripts:
@@ -169,27 +152,19 @@ Selected figure scripts:
 ```bash
 python Fig.01_resilience_patterns_v3.py
 python Fig.01b_resilience_patterns_spatial_v2.py
-python Fig.02a_driver_relative_importance.py
-python Fig.02b_variable_sensitivity.py
-python Fig.03_fire_frequency_plot.py
-python Fig.04ab_gpp_resilience_relationship_stability.py
-python Fig.05a_trendy_resilience_v3.py
 ```
 
 To run on your own data:
 
-1. Keep the same folder layout: `1_Input`, `2_Output`, `3_Code_new`, `4_Figures`.
-2. Put your rasters and arrays in the paths expected by the script, or edit the path variables.
-3. Match the expected grid, orientation, and temporal dimensions where possible.
-4. Reduce multiprocessing pool sizes to fit your hardware.
-5. Run preprocessing scripts first, then resilience scripts, then figure scripts.
+1. Put your rasters and arrays in the paths expected by the script, or edit the path variables.
+2. Match the expected grid, orientation, and temporal dimensions where possible.
+3. Reduce multiprocessing pool sizes to fit your hardware.
+4. Run preprocessing scripts first, then resilience scripts, then figure scripts.
 
 Full raw-data runs can take several hours to multiple days. Downstream figure scripts usually finish in minutes after intermediate files are available.
 
 ## Notes
 
-- The repository does not include a formal test suite.
-- Many scripts contain fixed manuscript-analysis paths and file names.
 - On a headless server, replace Matplotlib `Qt5Agg`/`qtAgg` backends with `Agg`.
 - If Matplotlib cache warnings appear, run:
 
