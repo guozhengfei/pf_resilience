@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import sem, t
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,6 +13,14 @@ from PIL import Image
 import scipy.stats as st
 import seaborn as sns
 
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
 def smooth_array(arr, window_size):
     smoothed_arr = []
     half_window = window_size // 2
@@ -20,6 +30,7 @@ def smooth_array(arr, window_size):
         window = arr[start:end]
         smoothed_arr.append(sum(window) / len(window))
     return smoothed_arr
+
 
 def smooth_2d_array(arr, window_size):
     smoothed_arr = np.zeros_like(arr)
@@ -78,16 +89,16 @@ if __name__ == '__main__':
     # relative importance
     shap_values = coefs[:,1:11]
     shap_mean = np.nanmean(shap_values,axis=0)#[[0,1,2,3,4,5,6,7,8,9,10]]
-    shap_std = np.nanstd(shap_values,axis=0)*0.1#[[0,1,2,3,4,5,6,7,8,9,10]]*0.1
+    shap_se = standard_error(shap_values, axis=0)
     type = [1,1,1,1,2,2,2,3,3,3]
     colors = ['#878787','#878787','#878787','#878787','#d6604d','#d6604d','#d6604d','#4393c3','#4393c3','#4393c3']
-    df = pd.DataFrame(np.vstack((shap_mean,shap_std,type)).T).astype(float)
-    df.columns=['shap_mean','std','type']
-    df.iloc[7,[0,1]] = df.iloc[7,[0,1]]*0.4
+    df = pd.DataFrame(np.vstack((shap_mean,shap_se,type)).T).astype(float)
+    df.columns=['shap_mean','se','type']
+    df['n_pixels'] = np.isfinite(shap_values).sum(axis=0)
     df['color'] = colors
     df['name'] = ['VPD','Srad','Pr','Ta','Ts','SM','ALT','kNDVI','GSL','LAI']
     sorted_df = df.sort_values(by='shap_mean')
-    axs[1].barh(np.linspace(0,9,10), sorted_df['shap_mean'].values,xerr = sorted_df['std'],color=sorted_df['color'])
+    axs[1].barh(np.linspace(0,9,10), sorted_df['shap_mean'].values,xerr = sorted_df['se'],color=sorted_df['color'])
     axs[1].set_yticks(np.linspace(0,9,10),sorted_df['name'])
 
     fig.tight_layout()
@@ -95,6 +106,6 @@ if __name__ == '__main__':
     plt.savefig(figToPath, dpi=900)
 
     # Export data to CSV
-    export_df = sorted_df[['name', 'shap_mean', 'std', 'color']]
+    export_df = sorted_df[['name', 'shap_mean', 'se', 'n_pixels', 'color']]
     export_df.to_csv(current_dir + '/2_Output/fig_2a_driver_importance.csv', index=False)
 

@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import sem, t
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -11,6 +13,14 @@ from PIL import Image
 import scipy.stats as st
 import seaborn as sns
 
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
 def smooth_array(arr, window_size):
     smoothed_arr = []
     half_window = window_size // 2
@@ -20,6 +30,7 @@ def smooth_array(arr, window_size):
         window = arr[start:end]
         smoothed_arr.append(sum(window) / len(window))
     return smoothed_arr
+
 
 def smooth_2d_array(arr, window_size):
     smoothed_arr = np.zeros_like(arr)
@@ -42,7 +53,7 @@ if __name__ == '__main__':
     sens[:,7] = sens[:,7]*0.01
     sens[:,[3,9]] = sens[:,[3,9]]*0.5
     sens_mean = np.nanmean(sens,axis=0)*10
-    sens_std = np.nanstd(sens, axis=0)*0.008+0.003
+    sens_se = standard_error(sens, axis=0) * 10
 
     # relative importance
     ndvi = np.load(current_dir + '/1_Input/data for drivers/ndvi_yearly.npy')[:, 2:-2]
@@ -137,15 +148,31 @@ if __name__ == '__main__':
     
     d_tac2 = [d_vpd2*sens_mean[0],d_srad2*sens_mean[1],d_pr2*sens_mean[2],d_tmean2*sens_mean[3],d_st2*sens_mean[4],d_sm2*sens_mean[5],d_alt2*sens_mean[6],d_ndvi2*sens_mean[7]+0.002,d_gsl2*sens_mean[8]-0.005,d_lai2*sens_mean[9]]
 
+    # CIs/SEs are conditional on the existing predictor changes and fixed offsets.
+    # Propagate each fixed predictor change to each pixel before taking SE.
+    # Summing per-pixel contributions retains covariance between features.
+    driver_changes_1 = np.array([d_vpd1, d_srad1, d_pr1, d_tmean1, d_st1,
+                                 d_sm1, d_alt1, d_ndvi1, d_gsl1, d_lai1])
+    driver_changes_2 = np.array([d_vpd2, d_srad2, d_pr2, d_tmean2, d_st2,
+                                 d_sm2, d_alt2, d_ndvi2, d_gsl2, d_lai2])
+    attributed_pixels_1 = sens * 10 * driver_changes_1[None, :]
+    attributed_pixels_2 = sens * 10 * driver_changes_2[None, :]
+    attribution_se_1 = standard_error(attributed_pixels_1, axis=0)
+    attribution_se_2 = standard_error(attributed_pixels_2, axis=0)
+    total_pixels_1 = attributed_pixels_1[np.isfinite(attributed_pixels_1).all(axis=1)].sum(axis=1)
+    total_pixels_2 = attributed_pixels_2[np.isfinite(attributed_pixels_2).all(axis=1)].sum(axis=1)
+    total_se_1 = standard_error(total_pixels_1)
+    total_se_2 = standard_error(total_pixels_2)
+
     fig, axs = plt.subplots(2, 1, figsize=(5,5 ))
-    axs[0].errorbar(np.linspace(0, 9, 10), sens_mean, yerr=sens_std, marker='o', ms=5, mew=2, mec='k',ls='none', lw=2, c='k')
+    axs[0].errorbar(np.linspace(0, 9, 10), sens_mean, yerr=sens_se, marker='o', ms=5, mew=2, mec='k',ls='none', lw=2, c='k')
     axs[0].set_xticks(np.linspace(0, 10, 11),
                       ['VPD', 'Srad', 'Pr', 'Ta', 'Ts', 'SM', 'ALT','kNDVI', 'GSL', 'LAI', ''])
     axs[0].axhline(y=0, color='k', linestyle='--')
-    axs[1].errorbar(np.linspace(0,9,10),d_tac1,yerr=sens_std*2.1, marker='o',mec='#d6604d', ms=5, mew=2,ls='none',lw=2,c='#d6604d')
-    axs[1].errorbar(np.linspace(0, 9, 10)+0.15, d_tac2, yerr=sens_std * 2.05, marker='o',mec='#4393c3', ms=5, mew=2, ls='none',lw=2.5,c='#4393c3')
-    axs[1].errorbar(10, np.sum(d_tac1), yerr=0.002*2.05, marker='o',mec='#d6604d', ms=5, mew=2, ls='none',lw=2,c='#d6604d')
-    axs[1].errorbar(10.15, np.sum(d_tac2), yerr=0.0025 * 2.05, marker='o', mec='#4393c3', ms=5, mew=2, ls='none', lw=2,c='#4393c3')
+    axs[1].errorbar(np.linspace(0,9,10),d_tac1,yerr=attribution_se_1, marker='o',mec='#d6604d', ms=5, mew=2,ls='none',lw=2,c='#d6604d')
+    axs[1].errorbar(np.linspace(0, 9, 10)+0.15, d_tac2, yerr=attribution_se_2, marker='o',mec='#4393c3', ms=5, mew=2, ls='none',lw=2.5,c='#4393c3')
+    axs[1].errorbar(10, np.sum(d_tac1), yerr=total_se_1, marker='o',mec='#d6604d', ms=5, mew=2, ls='none',lw=2,c='#d6604d')
+    axs[1].errorbar(10.15, np.sum(d_tac2), yerr=total_se_2, marker='o', mec='#4393c3', ms=5, mew=2, ls='none', lw=2,c='#4393c3')
 
     axs[1].set_xticks(np.linspace(0,10,11),['VPD','Srad','Pr','Ta','Ts','SM','ALT','kNDVI','GSL','LAI','All'])#,rotation=25
     axs[1].axhline(y=0, color='k', linestyle='--')
@@ -162,8 +189,8 @@ if __name__ == '__main__':
         'Variable': ['VPD', 'Srad', 'Pr', 'Ta', 'Ts', 'SM', 'ALT', 'kNDVI', 'GSL', 'LAI', 'All'],
         'Period_2002_2007': d_tac1 + [np.sum(d_tac1)],  # Add sum as last value
         'Period_2008_2022': d_tac2 + [np.sum(d_tac2)],  # Add sum as last value
-        'Standard_Error2002_2007': list(sens_std * 2.1) + [0.0025 * 2.05],  # Add error for sum
-        'Standard_Error2008_2022': list(sens_std * 2.05) + [0.0025 * 2.05]  # Add error for sum
+        'Standard_Error2002_2007': list(attribution_se_1) + [total_se_1],  # Add error for sum
+        'Standard_Error2008_2022': list(attribution_se_2) + [total_se_2]  # Add error for sum
     }
     
     # Create DataFrame and export to CSV

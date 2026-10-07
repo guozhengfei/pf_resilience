@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import sem, t
 import pymannkendall as mk
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -7,6 +9,24 @@ plt.tick_params(width=0.8,labelsize=14)
 from PIL import Image
 import multiprocess as mp
 import os
+
+
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
+
+def mean_ci95(values, axis=0):
+    """Return the mean, Student-t 95% CI half-width and non-missing sample count."""
+    values = np.asarray(values, dtype=float)
+    n = np.isfinite(values).sum(axis=axis)
+    half_width = t.ppf(0.975, n - 1) * standard_error(values, axis=axis)
+    return np.nanmean(values, axis=axis), half_width, n
+
 def smooth_array(arr, window_size):
     smoothed_arr = []
     half_window = window_size // 2
@@ -37,8 +57,9 @@ if __name__ == '__main__':
     time_label_modis = np.linspace(2002,2021,20)
 
 
-    se = np.nanstd(tac2,axis=0)/443*20
-    # axs[0].fill_between(time_label_modis, mean_val_modis - se, mean_val_modis + se, color='k', alpha=0.2, label='Standard Deviation')
+    # Each pixel contributes one annual TAC value; omit missing pixels.
+    se = standard_error(tac2, axis=0)
+    _, tac_ci95_half_width, tac_n = mean_ci95(tac2, axis=0)
 
     ## PFT information
     pf_mask_path2 = current_dir + '/1_Input/landcover_export_2010_5km.tif'
@@ -74,6 +95,9 @@ if __name__ == '__main__':
 
     mean_val_modis = np.nanmean(tac2, axis=0)
     axs[0].plot(time_label_modis, mean_val_modis, color='k', lw=3)
+    axs[0].fill_between(time_label_modis, mean_val_modis - tac_ci95_half_width,
+                        mean_val_modis + tac_ci95_half_width, color='k',
+                        alpha=0.2, label='95% CI')
 
     # plot resilience trend for each PFT
     trend = np.load(current_dir + '/2_Output/spatial_resilience/resilience_trend_modis.npy')
@@ -88,42 +112,42 @@ if __name__ == '__main__':
     index = (PFT_1d == 1) | (PFT_1d == 3)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[1].bar(0, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[1].bar(0, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
             alpha=0.7)
-    axs[1].bar(0.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k', alpha=0.7)
+    axs[1].bar(0.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k', alpha=0.7)
 
     # Mixed forest
     index = (PFT_1d == 4) | (PFT_1d == 5)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[1].bar(1, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[1].bar(1, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
             alpha=0.7)
-    axs[1].bar(1.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k', alpha=0.7)
+    axs[1].bar(1.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k', alpha=0.7)
     # np.sum(trend_10 > 0) / np.sum(~np.isnan(trend_10))
 
     # Shrubland
     index = (PFT_1d == 6) | (PFT_1d == 7)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[1].bar(2, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[1].bar(2, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
             alpha=0.7)
-    axs[1].bar(2.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k', alpha=0.7)
+    axs[1].bar(2.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k', alpha=0.7)
 
     # Savana
     index = (PFT_1d == 8) | (PFT_1d == 9)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[1].bar(3, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[1].bar(3, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
             alpha=0.7)
-    axs[1].bar(3.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k', alpha=0.7)
+    axs[1].bar(3.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k', alpha=0.7)
 
     # Grass
     index = (PFT_1d == 10)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[1].bar(4, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[1].bar(4, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
             alpha=0.7)
-    axs[1].bar(4.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k', alpha=0.7)
+    axs[1].bar(4.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k', alpha=0.7)
     axs[1].set_xticks(range(5),['NF','MF','SVA','SHR','GRA'])
 
 
@@ -138,33 +162,33 @@ if __name__ == '__main__':
     index = (csdi_1d == 0)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[2].bar(0, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[2].bar(0, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
                alpha=0.7)
-    axs[2].bar(0.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k',
+    axs[2].bar(0.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k',
                alpha=0.7)
 
     index = (csdi_1d == 1)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[2].bar(1, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[2].bar(1, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
                alpha=0.7)
-    axs[2].bar(1.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k',
+    axs[2].bar(1.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k',
                alpha=0.7)
 
     index = (csdi_1d == 2)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[2].bar(2, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[2].bar(2, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
                alpha=0.7)
-    axs[2].bar(2.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k',
+    axs[2].bar(2.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k',
                alpha=0.7)
 
     index = (csdi_1d == 3)
     trend_10 = trend_07[index]
     trend_23 = trend_22[index]
-    axs[2].bar(3, np.nanmean(trend_10), yerr=np.nanstd(trend_10) * 0.05, color='#4393c3', width=0.3, ec='k', hatch='//',
+    axs[2].bar(3, np.nanmean(trend_10), yerr=standard_error(trend_10), color='#4393c3', width=0.3, ec='k', hatch='//',
                alpha=0.7)
-    axs[2].bar(3.3, np.nanmean(trend_23), yerr=np.nanstd(trend_23) * 0.05, color='#4393c3', width=0.3, ec='k',
+    axs[2].bar(3.3, np.nanmean(trend_23), yerr=standard_error(trend_23), color='#4393c3', width=0.3, ec='k',
                alpha=0.7)
     axs[2].set_xlim([-0.32-0.5,4.66-0.5])
     axs[2].set_xticks(range(4),['D','S','C','I'])
@@ -185,7 +209,9 @@ if __name__ == '__main__':
         'Shrubland': SHR,
         'Grassland': GRA,
         'All_Mean': mean_val_modis,
-        'Standard_Error': se  # Add standard error values
+        'Standard_Error': se,
+        'CI95_HalfWidth': tac_ci95_half_width,
+        'N_Pixels': tac_n
     }
     temporal_df = pd.DataFrame(temporal_data)
     temporal_df.to_csv(current_dir + '/4_Figures/Fig.1/Fig01_temporal_patterns_2026.csv', index=False)
@@ -202,11 +228,11 @@ if __name__ == '__main__':
     #         np.nanmean(trend_07[PFT_1d == 10])
     #     ],
     #     'Error_2002_2007': [
-    #         np.nanstd(trend_07[(PFT_1d == 1) | (PFT_1d == 3)]) * 0.05,
-    #         np.nanstd(trend_07[(PFT_1d == 4) | (PFT_1d == 5)]) * 0.05,
-    #         np.nanstd(trend_07[(PFT_1d == 6) | (PFT_1d == 7)]) * 0.05,
-    #         np.nanstd(trend_07[(PFT_1d == 8) | (PFT_1d == 9)]) * 0.05,
-    #         np.nanstd(trend_07[PFT_1d == 10]) * 0.05
+    #         standard_error(trend_07[(PFT_1d == 1) | (PFT_1d == 3)]),
+    #         standard_error(trend_07[(PFT_1d == 4) | (PFT_1d == 5)]),
+    #         standard_error(trend_07[(PFT_1d == 6) | (PFT_1d == 7)]),
+    #         standard_error(trend_07[(PFT_1d == 8) | (PFT_1d == 9)]),
+    #         standard_error(trend_07[PFT_1d == 10])
     #     ],
     #     'Trend_2008_2022': [
     #         np.nanmean(trend_22[(PFT_1d == 1) | (PFT_1d == 3)]),
@@ -216,11 +242,11 @@ if __name__ == '__main__':
     #         np.nanmean(trend_22[PFT_1d == 10])
     #     ],
     #     'Error_2008_2022': [
-    #         np.nanstd(trend_22[(PFT_1d == 1) | (PFT_1d == 3)]) * 0.05,
-    #         np.nanstd(trend_22[(PFT_1d == 4) | (PFT_1d == 5)]) * 0.05,
-    #         np.nanstd(trend_22[(PFT_1d == 6) | (PFT_1d == 7)]) * 0.05,
-    #         np.nanstd(trend_22[(PFT_1d == 8) | (PFT_1d == 9)]) * 0.05,
-    #         np.nanstd(trend_22[PFT_1d == 10]) * 0.05
+    #         standard_error(trend_22[(PFT_1d == 1) | (PFT_1d == 3)]),
+    #         standard_error(trend_22[(PFT_1d == 4) | (PFT_1d == 5)]),
+    #         standard_error(trend_22[(PFT_1d == 6) | (PFT_1d == 7)]),
+    #         standard_error(trend_22[(PFT_1d == 8) | (PFT_1d == 9)]),
+    #         standard_error(trend_22[PFT_1d == 10])
     #     ]
     # }
     # pft_trends_df = pd.DataFrame(pft_trends)
@@ -237,10 +263,10 @@ if __name__ == '__main__':
     #         np.nanmean(trend_07[csdi_1d == 3])
     #     ],
     #     'Error_2002_2007': [
-    #         np.nanstd(trend_07[csdi_1d == 0]) * 0.05,
-    #         np.nanstd(trend_07[csdi_1d == 1]) * 0.05,
-    #         np.nanstd(trend_07[csdi_1d == 2]) * 0.05,
-    #         np.nanstd(trend_07[csdi_1d == 3]) * 0.05
+    #         standard_error(trend_07[csdi_1d == 0]),
+    #         standard_error(trend_07[csdi_1d == 1]),
+    #         standard_error(trend_07[csdi_1d == 2]),
+    #         standard_error(trend_07[csdi_1d == 3])
     #     ],
     #     'Trend_2008_2022': [
     #         np.nanmean(trend_22[csdi_1d == 0]),
@@ -249,10 +275,10 @@ if __name__ == '__main__':
     #         np.nanmean(trend_22[csdi_1d == 3])
     #     ],
     #     'Error_2008_2022': [
-    #         np.nanstd(trend_22[csdi_1d == 0]) * 0.05,
-    #         np.nanstd(trend_22[csdi_1d == 1]) * 0.05,
-    #         np.nanstd(trend_22[csdi_1d == 2]) * 0.05,
-    #         np.nanstd(trend_22[csdi_1d == 3]) * 0.05
+    #         standard_error(trend_22[csdi_1d == 0]),
+    #         standard_error(trend_22[csdi_1d == 1]),
+    #         standard_error(trend_22[csdi_1d == 2]),
+    #         standard_error(trend_22[csdi_1d == 3])
     #     ]
     # }
     # cdsi_trends_df = pd.DataFrame(cdsi_trends)

@@ -23,6 +23,8 @@ matplotlib.rcParams.update({
 })
 
 
+# Merge freshly calculated CI95 columns from Fig.02d and R3.11 into this input.
+# Legacy scaled SD/SE columns cannot be interpreted as 95% confidence intervals.
 INPUT_CSV = Path("/Volumes/Zhengfei_01/Project 2 pf resilience/2_Output/SST_OCEAN_MFC_VAP.csv")
 FIGURE_DIR = Path("/Volumes/Zhengfei_01/Project 2 pf resilience/4_Figures")
 OUTPUT_PNG = FIGURE_DIR / "R312_OET_MFC_VVAP_timeseries.png"
@@ -58,9 +60,9 @@ def add_piecewise_fit(ax, years, values, color, anchor=None):
     ax.plot(x_hat + YEAR_SPLIT, y_hat, "--", color=color, lw=1.5)
 
 
-def plot_series(ax, years, values, spread, color, label, anchor=None):
+def plot_series(ax, years, values, ci95_half_width, color, label, anchor=None):
     ax.plot(years, values, color=color, lw=1.0, label=label)
-    ax.fill_between(years, values - spread, values + spread, color=color, alpha=0.15, linewidth=0)
+    ax.fill_between(years, values - ci95_half_width, values + ci95_half_width, color=color, alpha=0.15, linewidth=0)
     add_piecewise_fit(ax, years, values, color, anchor=anchor)
 
 
@@ -88,7 +90,7 @@ def main():
         axs[0],
         years,
         df["VPD1_Anomaly"].to_numpy(),
-        df["VPD1_StdDev"].to_numpy(),
+        df["VPD1_CI95_HalfWidth"].to_numpy(),
         TEAL,
         "TerraClimate",
         anchor=-0.08,
@@ -97,7 +99,7 @@ def main():
         axs[0],
         years,
         df["VPD2_Anomaly"].to_numpy(),
-        df["VPD2_StdDev"].to_numpy(),
+        df["VPD2_CI95_HalfWidth"].to_numpy(),
         ORANGE,
         "CRU",
         anchor=-0.08,
@@ -112,7 +114,7 @@ def main():
         axs[1],
         years,
         df["SVAP_Anomaly"].to_numpy(),
-        df["SVAP_StdDev"].to_numpy(),
+        df["SVAP_CI95_HalfWidth"].to_numpy(),
         TEAL,
         "SVAP",
         anchor=0.01,
@@ -121,7 +123,7 @@ def main():
         axs[1],
         years,
         df["VAP_Anomaly"].to_numpy(),
-        df["VAP_StdDev"].to_numpy(),
+        df["VAP_CI95_HalfWidth"].to_numpy(),
         ORANGE,
         "AVAP",
         anchor=0.01,
@@ -137,7 +139,7 @@ def main():
         ax_mfc,
         years,
         df["MFC_mm_day_anom"].to_numpy(),
-        df["MFC_mm_day_anom_se"].to_numpy(),
+        df["MFC_mm_day_anom_ci95_halfwidth"].to_numpy(),
         TEAL,
         "MFC",
         anchor=0.06,
@@ -146,7 +148,7 @@ def main():
         ax_evap,
         years,
         df["OceanE_Anomaly"].to_numpy(),
-        df["OceanE_StdDev"].to_numpy(),
+        df["OceanE_CI95_HalfWidth"].to_numpy(),
         ORANGE,
         "Ocean evaporation",
         anchor=1.0,

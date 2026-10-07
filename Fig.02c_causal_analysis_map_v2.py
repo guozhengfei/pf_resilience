@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import sem, t
 import pymannkendall as mk
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -9,6 +11,22 @@ import rasterio
 import cv2
 import os
 from plot_NH import *
+
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
+
+def mean_ci95(values, axis=0):
+    """Return the mean, Student-t 95% CI half-width and non-missing sample count."""
+    values = np.asarray(values, dtype=float)
+    n = np.isfinite(values).sum(axis=axis)
+    half_width = t.ppf(0.975, n - 1) * standard_error(values, axis=axis)
+    return np.nanmean(values, axis=axis), half_width, n
 
 if __name__ == '__main__':
     current_dir = os.path.dirname(os.getcwd()).replace('\\', '/')
@@ -72,10 +90,9 @@ if __name__ == '__main__':
 
     ax2 = fig.add_subplot(2, 2, 2)
     conv = vpd_tac[:,2:]
-    conv_mean = np.nanmedian(conv,axis=0)
-    conv_sd = np.nanstd(conv,axis=0)*0.2
+    conv_mean, conv_ci95_half_width, conv_n = mean_ci95(conv, axis=0)
     ax2.plot(range(5,20),conv_mean,lw=2.5,c='#d6604d')
-    ax2.fill_between(range(5,20),conv_mean+conv_sd,conv_mean-conv_sd,alpha=0.5,color='#d6604d')
+    ax2.fill_between(range(5,20),conv_mean-conv_ci95_half_width,conv_mean+conv_ci95_half_width,alpha=0.5,color='#d6604d')
 
     ax3 = fig.add_subplot(2, 2, 3)
     causal_vpd = mask.astype(float) * 1 + np.nan
@@ -184,7 +201,9 @@ if __name__ == '__main__':
     conv_data = pd.DataFrame({
         'Time_Step': range(5, 20),
         'Convergence_Mean': conv_mean,
-        'Convergence_StdDev': conv_sd
+        'Convergence_CI95_Lower': conv_mean - conv_ci95_half_width,
+        'Convergence_CI95_Upper': conv_mean + conv_ci95_half_width,
+        'N_Pixels': conv_n
     })
     
     csv_path = current_dir + '/4_Figures/causal_convergence_data.csv'

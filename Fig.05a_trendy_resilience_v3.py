@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import sem, t
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
@@ -7,6 +9,23 @@ from PIL import Image
 import multiprocess as mp
 import os
 import pandas as pd
+
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
+
+def mean_ci95(values, axis=0):
+    """Return the mean, Student-t 95% CI half-width and non-missing sample count."""
+    values = np.asarray(values, dtype=float)
+    n = np.isfinite(values).sum(axis=axis)
+    half_width = t.ppf(0.975, n - 1) * standard_error(values, axis=axis)
+    return np.nanmean(values, axis=axis), half_width, n
+
 
 def smooth_2d_array(array, window_size):
     kernel = np.ones(window_size) / window_size
@@ -34,9 +53,9 @@ if __name__ == '__main__':
         tac_trend_08 = np.polyfit(np.arange(tac08.shape[1]) / 12, tac08.T, deg=1)[0,:]
         tac_trend_23 = np.polyfit(np.arange(tac23.shape[1]) / 12, tac23.T, deg=1)[0, :]
         trend08_mean = tac_trend_08.mean()
-        trend08_sd = tac_trend_08.std()
+        trend08_sd = tac_trend_08.std(ddof=1)
         trend23_mean = tac_trend_23.mean()
-        trend23_sd = tac_trend_23.std()
+        trend23_sd = tac_trend_23.std(ddof=1)
         tac_mean = np.nanmean(tac,axis=0)
         Trend.append([trend08_mean,trend08_sd, trend23_mean,trend23_sd])
         TAC.append([tac_mean])
@@ -63,10 +82,11 @@ if __name__ == '__main__':
 
     fig, axs = plt.subplots(1, figsize=(12 * 0.8, 2.5 * 0.8))
     bax = brokenaxes(ylims=((-0.025, -0.02),(-0.015, 0.015), (0.040, 0.047)), hspace=0.05)
-    bax.bar(range(15),Trend[:,0],yerr=Trend[:,1]*0.1,width=0.3,color='#d6604d', ec='k', hatch='//')
-    bax.bar(15, Trend[:, 0].mean(), yerr=Trend[:,1].mean()*0.1,width=0.3, color='#4393c3', ec='k', hatch='//')
-    bax.bar(np.array(range(15))+0.3, Trend[:, 2],yerr=Trend[:,3]*0.1, width=0.3,color='#d6604d', ec='k')
-    bax.bar(15+0.3, Trend[:, 2].mean(), yerr=Trend[:,3].mean()*0.1,width=0.3, color='#4393c3', ec='k', hatch='//')
+    bax.bar(range(15),Trend[:,0],yerr=Trend[:,1],width=0.3,color='#d6604d', ec='k', hatch='//')
+    # The All bar describes the spread of model-specific mean trends.
+    bax.bar(15, Trend[:, 0].mean(), yerr=Trend[:, 0].std(ddof=1),width=0.3, color='#4393c3', ec='k', hatch='//')
+    bax.bar(np.array(range(15))+0.3, Trend[:, 2],yerr=Trend[:,3], width=0.3,color='#d6604d', ec='k')
+    bax.bar(15+0.3, Trend[:, 2].mean(), yerr=Trend[:, 2].std(ddof=1),width=0.3, color='#4393c3', ec='k', hatch='//')
     axs.set_axis_off()
 
     xtick=[]
@@ -153,9 +173,9 @@ if __name__ == '__main__':
     # Convert to numpy array
     all_shap_values = np.array(all_shap_values)
     
-    # Calculate mean and standard error of SHAP values across models
+    # Caption: one sample SD across DGVM-specific mean absolute SHAP values.
     mean_shap = np.mean(all_shap_values, axis=0)
-    se_shap = np.std(all_shap_values, axis=0) / np.sqrt(all_shap_values.shape[0])*0.5
+    sd_shap = np.std(all_shap_values, axis=0, ddof=1)
     
     # Create feature names list
     feature_names = ['VPD', 'Srad', 'Pr', 'Ta','Ts', 'SM', 'ALT', 'kNDVI','GSL', 'LAI']
@@ -163,26 +183,27 @@ if __name__ == '__main__':
     # Sort features by mean importance
     sort_idx = np.argsort(mean_shap)
     mean_shap = mean_shap[sort_idx]
-    se_shap = se_shap[sort_idx]
+    sd_shap = sd_shap[sort_idx]
     feature_names = [feature_names[i] for i in sort_idx]
     colors = [colors[i] for i in sort_idx]
 
     fig, axs = plt.subplots(1, 2, figsize=(12 * 0.8*0.8, 3.5 * 0.8*0.9))
-    tac_i = np.mean(TAC, axis=0).reshape(-1)
-    cl = '#4393c3'
-    tac_i_rsp = tac_i.reshape(19, 12)
-    tac_i_yr = np.mean(tac_i_rsp, axis=1)
-    sd = np.std(tac_i_rsp, axis=1)
-    # axs[0].plot(time_label_modis, tac_i_yr, color=cl, lw=2)
-    # axs[0].fill_between(time_label_modis, tac_i_yr + sd, tac_i_yr - sd, color=cl, alpha=0.3)
-    mean_val_modis = np.nanmean(tac2, axis=0)[:-1]
-    se = np.nanstd(tac2, axis=0)[:-1] / (tac2.shape[0])**0.5*20
+    # Each DGVM contributes an annual mean, not twelve monthly replicates.
+    model_annual_tac = TAC[:, 0, :].reshape(TAC.shape[0], 19, 12).mean(axis=2)
+    tac_i_yr, trendy_ci95_half_width, trendy_n = mean_ci95(model_annual_tac, axis=0)
+    mean_val_modis, modis_ci95_half_width, modis_n = mean_ci95(tac2[:, :-1], axis=0)
+    axs[0].plot(time_label_modis, tac_i_yr, color='#4393c3', lw=2)
+    axs[0].fill_between(time_label_modis, tac_i_yr - trendy_ci95_half_width,
+                        tac_i_yr + trendy_ci95_half_width, color='#4393c3', alpha=0.3,
+                        label='TRENDY mean 95% CI')
     axs[0].plot(time_label_modis, mean_val_modis, color='k', lw=2)
-    axs[0].fill_between(time_label_modis, mean_val_modis - se, mean_val_modis + se, color='k', alpha=0.2, label='Standard Deviation')
+    axs[0].fill_between(time_label_modis, mean_val_modis - modis_ci95_half_width,
+                        mean_val_modis + modis_ci95_half_width, color='k', alpha=0.2,
+                        label='MODIS mean 95% CI')
     axs[0].set_xticks([2005,2010,2015,2020],['2005','2010','2015','2020'])
     # Create bar plot with error bars
     y_pos = np.arange(len(feature_names))
-    axs[1].barh(y_pos, mean_shap, xerr=se_shap, align='center',
+    axs[1].barh(y_pos, mean_shap, xerr=sd_shap, align='center',
             color=colors, ecolor='black')
     axs[1].set_yticks(y_pos, feature_names)
     axs[1].set_xlabel('Mean |SHAP value|')
@@ -217,9 +238,9 @@ if __name__ == '__main__':
     trendy_data = pd.DataFrame({
         'Model': xtick[:n_models],
         'Trend_2002_2007': Trend[:n_models, 0],
-        'Trend_2002_2007_StdErr': Trend[:n_models, 1],
+        'Trend_2002_2007_StdDev': Trend[:n_models, 1],
         'Trend_2008_2022': Trend[:n_models, 2],
-        'Trend_2008_2022_StdErr': Trend[:n_models, 3]
+        'Trend_2008_2022_StdDev': Trend[:n_models, 3]
     })
     trendy_data.to_csv(current_dir + '/4_Figures/Fig05_trendy_trends.csv', index=False)
 
@@ -228,9 +249,11 @@ if __name__ == '__main__':
     temporal_data = pd.DataFrame({
         'Year': time_label_modis,
         'TRENDY_TAC_Anomaly': tac_i_yr, #- tac_i_yr[0],
-        'TRENDY_TAC_StdDev': sd,
+        'TRENDY_TAC_CI95_HalfWidth': trendy_ci95_half_width,
+        'TRENDY_N_Models': trendy_n,
         'MODIS_TAC_Anomaly': mean_val_modis,
-        'MODIS_TAC_StdErr': se
+        'MODIS_TAC_CI95_HalfWidth': modis_ci95_half_width,
+        'MODIS_N_Pixels': modis_n
     })
     temporal_data.to_csv(current_dir + '/4_Figures/Fig.5/Fig05_temporal_patterns_2026.csv', index=False)
 
@@ -238,7 +261,7 @@ if __name__ == '__main__':
     # shap_data = pd.DataFrame({
     #     'Feature': feature_names,
     #     'Mean_SHAP_Value': mean_shap,
-    #     'SHAP_StdErr': se_shap,
+    #     'SHAP_StdDev': sd_shap,
     #     'Category': ['Climate' if c == '#878787' else 'Soil' if c == '#d6604d' else 'Vegetation' for c in colors]
     # })
     # shap_data.to_csv(current_dir + '/4_Figures/Fig05_shap_values.csv', index=False)

@@ -1,3 +1,6 @@
+import numpy as np
+
+from scipy.stats import sem, t
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 plt.rc('font',family='Arial')
@@ -11,6 +14,14 @@ import cv2
 import scipy.signal as ss
 
 
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def standard_error(values, axis=0):
+    """Sample SD (ddof=1) / sqrt(non-missing n), along the sampling axis."""
+    values = np.asarray(values, dtype=float)
+    if np.isinf(values).any() or np.any(np.isfinite(values).sum(axis=axis) < 2):
+        raise ValueError("SE requires at least two finite observations per estimate.")
+    return sem(values, axis=axis, ddof=1, nan_policy="omit")
+
 def smooth_array(arr, window_size):
     smoothed_arr = []
     half_window = window_size // 2
@@ -22,6 +33,7 @@ def smooth_array(arr, window_size):
         smoothed_arr.append(sum(window) / len(window))
 
     return smoothed_arr
+
 
 def smooth_2d_array(arr, window_size):
     smoothed_arr = np.zeros_like(arr)
@@ -175,21 +187,18 @@ if __name__ == '__main__':
     ax21.tick_params(axis='y', labelcolor='#542788')
     ax21.set_ylim([0,.3])
 
-    ar1_nofire_mean = np.nanmean(np.nanmean(ar1_nonfireArea, axis=0))*0.97
-    ar1_nofire_sd = np.nanmean(np.nanstd(ar1_nonfireArea, axis=0)) / 23
-
-    ar1_fire1_mean = np.nanmean(np.nanmean(tac[fire_freq_1d == 1],axis=0))
-    ar1_fire1_sd = np.nanmean(np.nanstd(tac[fire_freq_1d == 1], axis=0))/23
-
-    ar1_fire2_mean = np.nanmean(np.nanmean(tac[fire_freq_1d == 2], axis=0))
-    ar1_fire2_sd = np.nanmean(np.nanstd(tac[fire_freq_1d == 2], axis=0))/23
-
-    ar1_fire3_mean = np.nanmean(np.nanmean(tac[fire_freq_1d >= 3], axis=0))
-    ar1_fire3_sd = np.nanmean(np.nanstd(tac[fire_freq_1d >= 3], axis=0))/23
-
+    # One temporal mean per pixel: repeated dates are not independent pixels.
+    fire_group_pixel_means = [np.nanmean(group, axis=1) for group in (
+        ar1_nonfireArea, tac[fire_freq_1d == 1],
+        tac[fire_freq_1d == 2], tac[fire_freq_1d >= 3])]
+    ar1_nofire_mean, ar1_fire1_mean, ar1_fire2_mean, ar1_fire3_mean = [
+        np.nanmean(values) for values in fire_group_pixel_means]
+    ar1_nofire_se, ar1_fire1_se, ar1_fire2_se, ar1_fire3_se = [
+        standard_error(values) for values in fire_group_pixel_means]
+    fire_group_n = [int(np.isfinite(values).sum()) for values in fire_group_pixel_means]
 
     ax3 = fig.add_subplot(2, 2, 3)
-    ax3.bar([0,1,2,3],[ar1_nofire_mean, ar1_fire1_mean,ar1_fire2_mean,ar1_fire3_mean],yerr=[ar1_nofire_sd,ar1_fire1_sd,ar1_fire2_sd,ar1_fire3_sd],width=0.5,color=['#878787','#fddbc7','#d6604d','#b2182b'])
+    ax3.bar([0,1,2,3],[ar1_nofire_mean, ar1_fire1_mean,ar1_fire2_mean,ar1_fire3_mean],yerr=[ar1_nofire_se,ar1_fire1_se,ar1_fire2_se,ar1_fire3_se],width=0.5,color=['#878787','#fddbc7','#d6604d','#b2182b'])
     ax3.set_ylim([0.46,0.58])
     # fig.tight_layout()
     #
@@ -303,7 +312,8 @@ if __name__ == '__main__':
     panel2_data = pd.DataFrame({
         'Fire_Frequency': ['No Fire', '1 Fire', '2 Fires', '3+ Fires'],
         'Mean_TAC': [ar1_nofire_mean, ar1_fire1_mean, ar1_fire2_mean, ar1_fire3_mean],
-        'TAC_StdErr': [ar1_nofire_sd, ar1_fire1_sd, ar1_fire2_sd, ar1_fire3_sd]
+        'TAC_StdErr': [ar1_nofire_se, ar1_fire1_se, ar1_fire2_se, ar1_fire3_se],
+        'N_Pixels': fire_group_n
     })
     panel2_data.to_csv(current_dir + '/4_Figures/Fig03_panel2_means.csv', index=False)
 

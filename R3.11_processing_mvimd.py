@@ -25,6 +25,7 @@ import re
 import warnings
 
 import numpy as np
+from scipy.stats import t as student_t
 import pandas as pd
 import rasterio
 from rasterio.warp import reproject, Resampling
@@ -197,7 +198,9 @@ def weighted_se(arr: np.ndarray, mask: np.ndarray, weights: np.ndarray) -> float
     mean = np.average(values, weights=w)
     variance = np.average((values - mean) ** 2, weights=w)
     effective_n = (w.sum() ** 2) / np.sum(w ** 2)
-    return np.sqrt(variance / effective_n)*10
+    # Independent-row approximation with unbiased weighted sample variance.
+    variance /= 1 - 1 / effective_n
+    return np.sqrt(variance / effective_n)
 
 
 def lat_lon_grid(src):
@@ -337,6 +340,8 @@ for year, tif_path in year_to_path.items():
         mfc_sum[valid_map] += mfc_mm_day[valid_map]
         mfc_count[valid_map] += 1
 
+        valid_weights = weights[np.isfinite(arr) & domain_mask & np.isfinite(weights) & (weights > 0)]
+        effective_n = valid_weights.sum() ** 2 / np.sum(valid_weights ** 2)
         records.append({
             "year": year,
             "domain": domain_name,
@@ -346,7 +351,8 @@ for year, tif_path in year_to_path.items():
             "MFC_mm_day": weighted_mean(mfc_mm_day, domain_mask, weights),
             "MVIMD_mm_day_se": weighted_se(mvimd_mm_day, domain_mask, weights),
             "MFC_mm_day_se": weighted_se(mfc_mm_day, domain_mask, weights),
-            "n_valid_pixels": int((np.isfinite(arr) & domain_mask).sum())
+            "n_valid_pixels": int(valid_weights.size),
+            "n_effective_pixels": effective_n
         })
 
 df = pd.DataFrame(records).sort_values("year").reset_index(drop=True)
@@ -362,6 +368,9 @@ for col in ["MVIMD_mm_day", "MFC_mm_day"]:
 
 df["MVIMD_mm_day_anom_se"] = df["MVIMD_mm_day_se"]
 df["MFC_mm_day_anom_se"] = df["MFC_mm_day_se"]
+# Approximate weighted t CI; fixed baseline, without a spatial correction.
+df["MFC_mm_day_anom_ci95_halfwidth"] = (
+    student_t.ppf(0.975, df["n_effective_pixels"] - 1) * df["MFC_mm_day_se"])
 
 out_csv = OUTPUT_DIR / "pan_arctic_permafrost_ERA5_MVIMD_MFC_annual_1990_2023.csv"
 df.to_csv(out_csv, index=False)
@@ -431,8 +440,8 @@ ax.plot(
 )
 ax.fill_between(
     df["year"],
-    df["MFC_mm_day_anom"] - df["MFC_mm_day_anom_se"],
-    df["MFC_mm_day_anom"] + df["MFC_mm_day_anom_se"],
+    df["MFC_mm_day_anom"] - df["MFC_mm_day_anom_ci95_halfwidth"],
+    df["MFC_mm_day_anom"] + df["MFC_mm_day_anom_ci95_halfwidth"],
     color="black",
     alpha=0.18,
     linewidth=0,

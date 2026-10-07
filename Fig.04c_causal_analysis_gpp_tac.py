@@ -1,4 +1,6 @@
 import numpy as np
+
+from scipy.stats import binom
 import pymannkendall as mk
 import matplotlib; matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
@@ -9,6 +11,27 @@ import rasterio
 import cv2
 import os
 from plot_NH import *
+
+# Pointwise intervals assume independent sampling units (pixels or DGVMs).
+def median_ci95(values):
+    """Column-wise medians and distribution-free, at-least-95% CI bounds.
+
+    Binomial order statistics avoid substituting a mean SE for a median CI.
+    The bounds are actual order statistics, not the 2.5/97.5% data quantiles.
+    """
+    values = np.asarray(values, dtype=float)
+    if values.ndim != 2 or np.isinf(values).any():
+        raise ValueError("Median CIs require a 2-D array without infinite values.")
+    n = np.isfinite(values).sum(axis=0)
+    if np.any(n < 6):
+        raise ValueError("A finite distribution-free 95% median CI requires n >= 6.")
+    lower = np.empty(values.shape[1])
+    upper = np.empty(values.shape[1])
+    for column in range(values.shape[1]):
+        ordered = np.sort(values[np.isfinite(values[:, column]), column])
+        k = int(binom.ppf(0.025, n[column], 0.5))
+        lower[column], upper[column] = ordered[k - 1], ordered[n[column] - k]
+    return np.nanmedian(values, axis=0), lower, upper, n
 
 if __name__ == '__main__':
     current_dir = os.path.dirname(os.getcwd()).replace('\\', '/')
@@ -70,10 +93,9 @@ if __name__ == '__main__':
 
     ax2 = fig.add_subplot(2, 2, 2)
     conv = vpd_tac[:,2:]
-    conv_mean = np.nanmedian(conv,axis=0)
-    conv_sd = np.nanstd(conv,axis=0)*0.2
-    ax2.plot(range(5,20),conv_mean,lw=2.5,c='#d6604d')
-    ax2.fill_between(range(5,20),conv_mean+conv_sd,conv_mean-conv_sd,alpha=0.5,color='#d6604d')
+    conv_median, conv_ci95_lower, conv_ci95_upper, conv_n = median_ci95(conv)
+    ax2.plot(range(5,20),conv_median,lw=2.5,c='#d6604d')
+    ax2.fill_between(range(5,20),conv_ci95_lower,conv_ci95_upper,alpha=0.5,color='#d6604d')
 
     ax3 = fig.add_subplot(2, 2, 3)
     causal_vpd = mask.astype(float) * 1 + np.nan
@@ -175,8 +197,10 @@ if __name__ == '__main__':
     
     convergence_data = pd.DataFrame({
         'Time_Step': range(5, 20),
-        'Convergence_Mean': conv_mean,
-        'Convergence_StdDev': conv_sd
+        'Convergence_Median': conv_median,
+        'Convergence_CI95_Lower': conv_ci95_lower,
+        'Convergence_CI95_Upper': conv_ci95_upper,
+        'N_Pixels': conv_n
     })
     
     csv_path = current_dir + '/4_Figures/Fig04_convergence_data.csv'
